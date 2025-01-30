@@ -19,6 +19,7 @@ def reverse_columns(columns):
         column_dict[columns[i]] = new_column_name
     print(column_dict)
     return column_dict
+
 def retrieve_player_stats(match_df, num_years):
     match_df["tourney_date"] = pd.to_datetime(match_df["tourney_date"], format="%Y%m%d")
 
@@ -94,6 +95,7 @@ def get_rename_mapping(original_columns, prefix):
     for column in original_columns:
         result[column] = prefix +"_" + column
     return result
+
 def merge_dataframes(match_df, other_df, columns_to_merge_on, rename_mapping, is_winner):
     match_df = match_df.merge(
         other_df[other_df["is_winner"] == is_winner][columns_to_merge_on],
@@ -103,6 +105,7 @@ def merge_dataframes(match_df, other_df, columns_to_merge_on, rename_mapping, is
         suffixes=("", "_winner")
     ).rename(columns=rename_mapping)
     return match_df
+
 def compute_service_percentage_per_game_prefix(match_df, num_years):
     player_stats, new_stats_columns = retrieve_player_stats(match_df, num_years)    
     # Merge rolling averages back into the original DataFrame using match_id
@@ -116,20 +119,41 @@ def compute_service_percentage_per_game_prefix(match_df, num_years):
     print("loser rename mappings: ", loser_rename_mapping)
     # Merge for losers
     match_df = merge_dataframes(match_df, player_stats, columns_to_merge_on, loser_rename_mapping, 0)
-    # Fill NaN values with 0 (for new players or missing data)
-    # match_df["w_avg_serve_pct"] = match_df["w_avg_serve_pct"].fillna(0)
-    # match_df["l_avg_serve_pct"] = match_df["l_avg_serve_pct"].fillna(0)
-    
+
     return match_df
+
+def fill_na_columns(match_df, columns, value):
+    values = {}
+    for column in columns:
+        values[column] = value
+    match_df = match_df.fillna(value = values)
+    return match_df
+
+def get_new_column_names(columns, prefix):
+    result = []
+    for column in columns:
+        result.append(prefix + "_" + column)
+    return result
 
 def compute_surface_stats(match_df, num_years):
     new_df = match_df.copy()
+    
     for surface_type, group in match_df.groupby("surface"):
         player_stats, stats_columns = retrieve_player_stats(group, num_years)
-        winner_rename_mapping = get_rename_mapping(stats_columns, "w_" + surface_type + "_")
-        loser_rename_mapping = get_rename_mapping(stats_columns, "l_" + surface_type + "_")
+        w_prefix = "w_" + surface_type
+        l_prefix = "l_" + surface_type
 
+        winner_columns = get_new_column_names(stats_columns, w_prefix)
+        loser_columns = get_new_column_names(stats_columns, l_prefix)
+        winner_rename_mapping = get_rename_mapping(stats_columns, w_prefix)
+        loser_rename_mapping = get_rename_mapping(stats_columns, l_prefix)
+        columns_to_merge_on = stats_columns + ["match_id"]
+        new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, winner_rename_mapping, 1)
+        new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, loser_rename_mapping, 0)
+        new_df = fill_na_columns(new_df, winner_columns + loser_columns, 0)
         
+    match_df = new_df
+    return match_df
 
 def label_data(match_df):
     match_df.loc[match_df["player2_entry"] == "Alt", "player2_entry"] = "ALT"
@@ -156,7 +180,8 @@ def label_data(match_df):
     return encoded_df
     
 def handle_na(match_df):
-    #print(match_df.isna().sum())
+    pd.options.display.max_columns = 500
+    print(match_df.isna().sum())
     match_df["player1_entry"] = match_df["player1_entry"].fillna("O")
     match_df["player2_entry"] = match_df["player2_entry"].fillna("O")
     match_df["player1_age"] = match_df["player1_age"].fillna(26.15)
@@ -229,33 +254,11 @@ def prepare_data():
 
     print("COMPUTING SERVE WIN PERCENTAGES")
     match_df = compute_service_percentage_per_game_prefix(match_df, 3)
+    print("COMPUTING SURFACE STATS")
+    match_df = compute_surface_stats(match_df, 3)
     #print(match_df.columns)
     match_df = drop_cols(match_df)
     
-    # Rename columns to player1/player2 format
-
-    # rename_mapping = {
-    #     "winner_entry": "player1_entry",
-    #     "winner_hand": "player1_hand",
-    #     "winner_ht": "player1_ht",
-    #     "winner_age": "player1_age",
-    #     "winner_rank": "player1_rank",
-
-    #     "loser_entry": "player2_entry",
-    #     "loser_hand": "player2_hand",
-    #     "loser_ht": "player2_ht",
-    #     "loser_age": "player2_age",
-    #     "loser_rank": "player2_rank",
-
-    #     "w_avg_serve_pct": "player1_avg_serve_pct",
-    #     "l_avg_serve_pct": "player2_avg_serve_pct",
-    #     "w_avg_bp_pct": "player1_avg_bp_pct",
-    #     "l_avg_bp_pct": "player2_avg_bp_pct",
-    #     "w_matches_played": "player1_matches_played",
-    #     "l_matches_played": "player2_matches_played",
-    #     "w_matches_won": "player1_matches_won",
-    #     "l_matches_won": "player2_matches_won"
-    # }
     rename_mapping = rename_mapping_for_conversion_to_player(match_df.columns)
     match_df = match_df.rename(columns=rename_mapping)
     match_df["player1_won"] = 1  
@@ -269,13 +272,7 @@ def prepare_data():
     reversed_columns = reverse_columns(match_df.columns)
     reversed_df = match_df.rename(columns=reversed_columns)
 
-    #print(reversed_df.head())
-    # _zero_entries = len(match_df.loc[match_df["player1_avg_bp_pct"] != 0])
-    # num_non_zero_entries_l = len(match_df.loc[match_df["player2_avg_bp_pct"] != 0])
-    # print("num non zero entries (1): ", num_non_zero_entries)
-    # print("num non zero entries (2): ", num_non_zero_entries_lnum_non)
-    # print("max of player1_avg_bp_pct: ", reversed_df["player1_avg_bp_pct"].max())
-    # print("min of player1_avg_bp_pct: ", reversed_df["player1_avg_bp_pct"].min())
+    
     reversed_df["player1_won"] = 0  # Reverse the label for reversed matches
     # Concatenate the original and reversed datasets
     check_for_correct_columns(match_df, reversed_df)
@@ -283,13 +280,13 @@ def prepare_data():
 
     print(f"Original dataset size: {len(match_df)}")
     print(f"Doubled dataset size: {len(doubled_df)}")
-    #print(doubled_df.isin([np.inf, -np.inf]).values.sum()) 
-    #print(doubled_df.isna().sum())
+   
     print("columns:")
     pretty_print_columns(doubled_df)
     return doubled_df
 
 def main():
+    pd.options.display.max_columns = 500
     match_df = prepare_data()
     joblib.dump(match_df, "processed_df.pkl")
     
