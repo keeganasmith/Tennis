@@ -24,7 +24,7 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_size, num_classes):
         super(NeuralNetwork, self).__init__()
         num_params_per_layer = 512
-        self.layers = nn.Sequential(create_layers(5, num_params_per_layer, input_size, num_classes))
+        self.layers = nn.Sequential(create_layers(4, num_params_per_layer, input_size, num_classes))
 
     def forward(self, x):
         return self.layers(x)

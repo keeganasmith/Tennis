@@ -1,2 +1,5 @@
 *.pkl
 __pycache__
+venv
+libsvm-official
+myenv
