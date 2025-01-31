@@ -3,3 +3,5 @@ __pycache__
 venv
 libsvm-official
 myenv
+requests
+bs4

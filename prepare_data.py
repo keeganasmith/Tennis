@@ -45,7 +45,6 @@ def retrieve_player_stats(match_df, num_years):
     player_stats["rolling_serve_pct_sum"] = 0.0
     player_stats["rolling_match_count"] = 0
     player_stats["matches_won"] = 0
-
     player_stats["rolling_bp_pct_sum"] = 0.0
     print("SLIDING WINDOW")
     # Use a sliding window to calculate the rolling stats
@@ -249,9 +248,9 @@ def prepare_data():
     
     match_df["w_bp_save_pct"] = (match_df["w_bpSaved"] / match_df["w_bpFaced"])
     match_df["l_bp_save_pct"] = (match_df["l_bpSaved"] / match_df["l_bpFaced"])
-    match_df.loc[match_df["w_bpSaved"] == 0, "w_bp_save_pct"] = .5
-    match_df.loc[match_df["l_bpSaved"] == 0, "l_bp_save_pct"] = .5
-
+    print("Zero count before:", (match_df["w_bp_save_pct"] == 0).sum())
+    match_df.loc[match_df["w_bpSaved"] == 0, "w_bp_save_pct"] = 0.5
+    match_df.loc[match_df["l_bpSaved"] == 0, "l_bp_save_pct"] = 0.5
     print("COMPUTING SERVE WIN PERCENTAGES")
     match_df = compute_service_percentage_per_game_prefix(match_df, 3)
     print("COMPUTING SURFACE STATS")
@@ -278,11 +277,13 @@ def prepare_data():
     check_for_correct_columns(match_df, reversed_df)
     doubled_df = pd.concat([match_df, reversed_df], ignore_index=True)
 
-    print(f"Original dataset size: {len(match_df)}")
-    print(f"Doubled dataset size: {len(doubled_df)}")
+    # print(f"Original dataset size: {len(match_df)}")
+    # print(f"Doubled dataset size: {len(doubled_df)}")
    
-    print("columns:")
-    pretty_print_columns(doubled_df)
+    # print("columns:")
+    # pretty_print_columns(doubled_df)
+    zero_counts = (doubled_df == 0).sum()
+    #print(zero_counts)
     return doubled_df
 
 def main():
