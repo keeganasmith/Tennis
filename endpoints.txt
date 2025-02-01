@@ -1,0 +1,60 @@
+Where is ME82 / G628?
+
+Retrieve Events / Game IDs
+curl 'https://www.atptour.com/en/-/tour/Head2HeadSearch/GetHead2HeadData/ME82/G628' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'cookie: atp_visitor-id=e140a43b-2ba8-4c51-a493-9c8bf0be07bd; cebs=1; _gcl_au=1.1.1793926191.1738091188; _ga=GA1.1.928631930.1738091188; OptanonAlertBoxClosed=2025-01-28T19:06:31.562Z; shell#lang=en; _ce.clock_data=-120%2C165.91.13.102%2C1%2C0845b309c7b9b957afd9ecf775a4c21f%2CChrome%2CUS; cebsp_=11; _ce.s=v~19c8ddb6522e47c6384ca3e7d7df699c43e6052f~lcw~1738341420947~vir~returning~lva~1738335849280~vpv~0~v11.fhb~1738335849527~v11.lhb~1738341420947~v11.cs~356004~v11.s~9f9e8b80-dfe4-11ef-8027-fb7cd4796878~v11.sla~1738336179684~v11.send~1738341440737~lcw~1738341440737; __cf_bm=YdfnG9PlMU.X3sgo.YIQ5Rsd1l5ZEo90tEHMiRN5nlk-1738377311-1.0.1.1-beWWhokXsNS7_9EHeCkJmGKYNgB2Nco2dTwnltIbPYq96qRy25OAonUz6q7XXDmeLHnbgDYzKs_VWYwmuQV.zg; atp_session-id=ca08ab70-67e1-4aa5-8214-3016dd39a9b0; cf_clearance=qZ04cO8FOzYGT8yeDi1pY_WFcEPHWN61LjFsDPevJqA-1738377487-1.2.1.1-xeYeWpAC3MOaKOnK3TYWrEMxQhPhjILQojk7vdRom3VGpbfvYtYDbX91naRmdlULMSu2mqEmh9awkK5304r_rAO_u9YV0pt8BPMzqlrnXaG4OvMhY.un2kuZUJhfOT8mmPBuPMAKXHOAyeQlTlwn_TGwIYGRNWEgyw1NIlMKoUzzLk05xcHRR.I6qDW64mPRcw6DPWA4NQ7AWMKdgsTCqYY6WUVWJZY0KrJ8XehU9kyHeXyYvfjkLoNkcGdya97l9.y0uWEKIQtq1ET55jUgdMTxnXAwZNeTY3Wr2UesHvA; OptanonConsent=isGpcEnabled=0&datestamp=Fri+Jan+31+2025+20%3A38%3A07+GMT-0600+(Central+Standard+Time)&version=202411.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=a24bf9ec-9062-4dac-8b4c-da772ba8b15a&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0003%3A1&intType=1&geolocation=US%3BTX&AwaitingReconsent=false; _ga_D7VPPXYD0V=GS1.1.1738377312.6.1.1738377944.59.0.0' \
+  -H 'if-modified-since: Fri, 31 Jan 2025 18:22:42 GMT' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://www.atptour.com/en/scores/archive/perth-sydney/9900/2025/country-results' \
+  -H 'sec-ch-ua: "Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+Retrieve Match Statistics
+curl 'https://www.atptour.com/-/Hawkeye/MatchStats/Complete/2025/9900/ms011' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'cookie: atp_visitor-id=e140a43b-2ba8-4c51-a493-9c8bf0be07bd; cebs=1; _gcl_au=1.1.1793926191.1738091188; _ga=GA1.1.928631930.1738091188; OptanonAlertBoxClosed=2025-01-28T19:06:31.562Z; shell#lang=en; __cf_bm=LXycBOUP_BUIJguGLIl1jsR6bmQpdjRkLlh0CrIuC2s-1738335848-1.0.1.1-lhto_Fug0IEPHgpmGluYfOMy22IRbihzdeNbj6WjH15D0h0C4qj0nMCl19KA3oxirKh8.oJxKyVzFd53U8myVA; atp_session-id=2afb0b34-d8be-4010-9d39-dfe490a5a667; _ce.clock_data=-120%2C165.91.13.102%2C1%2C0845b309c7b9b957afd9ecf775a4c21f%2CChrome%2CUS; cf_clearance=8L13OKnDK938KtD_2H_DZpZDlRS.hoWOqILL822lL.4-1738335875-1.2.1.1-U7bJKdftbiOCoZwn8ynRpFhy.b1OdfJyR6vrhgKZpMSmb3cFJ5OLKVIs7op5auZRFB3S_UheHk5O1eMx8eUI5uXW0LuH4e5hIdvu8fHvkz6i4pJWqhA_gR61JIKkIg0ziux6YHp5tl_GocoSxPsz3XHW2cs_f2ypWOUwjWZGnb.OBO.U8D3Iqxb4HXkZslX5dXy8uZTG1MO2GxeaiOTBkIcYGgLmOE7FEgn8GSbv9HVdKfuGSrCWxqtSBRKjm8B0Tbt4tWZ0ER06rAbx4rrEfaVJfrXLZ_wFs.VUj3eoLMs; OptanonConsent=isGpcEnabled=0&datestamp=Fri+Jan+31+2025+09%3A06%3A04+GMT-0600+(Central+Standard+Time)&version=202411.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=a24bf9ec-9062-4dac-8b4c-da772ba8b15a&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0003%3A1&intType=1&geolocation=US%3BTX&AwaitingReconsent=false; cebsp_=10; _ga_D7VPPXYD0V=GS1.1.1738335849.3.1.1738336160.52.0.0; _ce.s=v~19c8ddb6522e47c6384ca3e7d7df699c43e6052f~lcw~1738336160529~vir~returning~lva~1738335849280~vpv~0~v11.fhb~1738335849527~v11.lhb~1738336145271~v11.cs~356004~v11.s~9f9e8b80-dfe4-11ef-8027-fb7cd4796878~v11.sla~1738336160701~v11.send~1738336160529~lcw~1738336160701' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://www.atptour.com/en/scores/match-stats/archive/2025/9900/ms011' \
+  -H 'sec-ch-ua: "Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+
+MS025 , 375
+https://www.atptour.com/en/-/tour/Head2HeadSearch/GetHead2HeadData/playerid/playerid
+https://www.atptour.com/-/Hawkeye/MatchStats/Complete/yyyy/eventid/matchid 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

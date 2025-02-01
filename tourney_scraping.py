@@ -1,29 +1,64 @@
 import requests
 import json
+import pandas as pd
+import joblib
+import random
+import string
+import time
+def random_three_letter_string():
+    return ''.join(random.choices(string.ascii_lowercase, k=3))
 
-# Define the URL
-url = "https://www.atptour.com/en/-/tournaments/calendar/tour"
+def search_players(three_digit_search, players_df):
+    url = f"https://www.atptour.com/en/-/www/players/find/byname/{three_digit_search}/en"
 
-# Define the headers (as extracted from curl)
-headers = {
-    "sec-ch-ua-platform": '"Windows"',
-    "Referer": "https://www.atptour.com/en/tournaments",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
-    "Accept": "application/json, text/plain, */*",
-    "sec-ch-ua": '"Not A(Brand";v="8", "Chromium";v="132", "Microsoft Edge";v="132"',
-    "sec-ch-ua-mobile": "?0"
-}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
 
-# Send the GET request
-response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers)
+    # Check for successful response
+    if response.status_code != 200:
+        print(f"Request failed with status code {response.status_code}")
+        return None  # Return None on failure
 
-# Check if request was successful
-if response.status_code == 200:
-    # Save response as JSON
-    with open("atp_tournaments.json", "w", encoding="utf-8") as f:
-        json.dump(response.json(), f, indent=4)
+    players = response.json()
+    my_players = pd.DataFrame(players)
+    if players_df is None or players_df.empty:
+        players_df = my_players
+    else:
+        players_df = pd.concat([players_df, my_players], ignore_index=True)
 
-    print("✅ ATP tournament data saved as 'atp_tournaments.json'")
-else:
-    print(f"❌ Failed to fetch data. Status Code: {response.status_code}")
-    print(response.text)  # Print error response
+    players_df = players_df.drop_duplicates(subset=['PlayerId'], keep='first')
+    joblib.dump(players_df, "atp_players_df.pkl")
+    return players_df
+
+def populate_players():
+    already_searched = []
+    try:
+        already_searched = joblib.load("searched_terms.pkl")
+    except:
+        print("searched_terms.pkl doesn't exist yet")
+    
+    players_df = None
+    try:
+        players_df = joblib.load("atp_players_df.pkl")
+    except:
+        print("players df doesn't exist yet")
+
+    for i in range(0, 1000):
+        three_letter_string = random_three_letter_string()
+        print("three letter string is: ", three_letter_string)
+        if(not (three_letter_string in already_searched)):
+            players_df = search_players(three_letter_string, players_df)
+            already_searched.append(three_letter_string)
+            joblib.dump(already_searched, "searched_terms.pkl")
+            print("players df size now ", len(players_df))
+            time.sleep(1)
+
+
+
+def main():
+    populate_players()
+
+if __name__ == "__main__":
+    main()

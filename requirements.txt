@@ -5,3 +5,4 @@ torchaudio
 pandas
 xgboost
 joblib
+requests
