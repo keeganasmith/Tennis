@@ -6,3 +6,5 @@ pandas
 xgboost
 joblib
 requests
+bs4
+flatdict

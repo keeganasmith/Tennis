@@ -5,6 +5,7 @@ import time
 import pandas as pd
 import json
 import flatdict
+import numpy as np
 irrelevant_keys = [
     # Identifiers & Metadata
     "EventDisplayName",  "TournamentImage",
@@ -20,7 +21,7 @@ irrelevant_keys = [
 
 
     # Doubles Partner Details (Not Relevant for Singles Matches)
-    "IsDoubles", "PlayerTeam1.PartnerId", "PlayerTeam1.PartnerFirstName",
+    "PlayerTeam1.PartnerId", "PlayerTeam1.PartnerFirstName",
     "PlayerTeam1.PartnerFirstNameFull", "PlayerTeam1.PartnerLastName",
     "PlayerTeam1.PartnerCountryCode", "PlayerTeam1.PartnerScRelativeUrlPlayerProfile",
     "PlayerTeam1.PartnerScRelativeUrlPlayerCountryFlag",
@@ -32,6 +33,61 @@ irrelevant_keys = [
     "PlayerTeam2.PartnerHeadshotImageUrl", "PlayerTeam2.PartnerGladiatorImageUrl",
 ]
 
+def retrieve_player_historical_rankings(player_id):
+    url = f"https://www.atptour.com/en/-/www/rank/history/{player_id}?v=1"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest"
+    }
+    max_retries = 5
+    retries = 0
+    while retries < max_retries:
+        start_time = time.time()
+        try:
+            response = requests.get(url, headers=headers, timeout=2)
+            elapsed_time = time.time() - start_time
+            if response.status_code == 200:
+                try:
+                    return response.json()
+                except ValueError:
+                    print("Response is not JSON. Printing raw text:")
+                    print(response.text)
+                    return None
+            else:
+                print(f"Request failed with status code {response.status_code}")
+
+        except (requests.Timeout, requests.ConnectionError) as e:
+            print(f"Request timed out or failed: {e}")
+            time.sleep(10)
+        
+        retries += 1
+        print(f"Retrying... Attempt {retries}/{max_retries}")
+    
+    print("Max retries reached. Returning None.")
+    return None
+
+def map_player_rankings():
+    my_df = joblib.load("./data/atp_stats.pkl")
+    unique_player1_ids = my_df["PlayerTeam1.PlayerId"].unique()
+    unique_player2_ids = my_df["PlayerTeam2.PlayerId"].unique()
+    unique_players = np.union1d(unique_player1_ids, unique_player2_ids)
+    current_player_mappings = {}
+    try:
+        current_player_mappings = joblib.load("./data/player_rankings.pkl")
+    except:
+        print("player rankings not found")
+        
+    for id in unique_players:
+        if(id in current_player_mappings):
+            print("already exists")
+            continue
+        ranking_results = retrieve_player_historical_rankings(id)
+        current_player_mappings[id] = ranking_results
+        joblib.dump(current_player_mappings, "./data/player_rankings.pkl")
+        print("progress: ", len(current_player_mappings.keys()), "/", len(unique_players))
+        time.sleep(.1)
+    
 def remove_irrelevant_keys(my_dict):
     keys = list(my_dict.keys())
     for key in keys:
@@ -250,7 +306,7 @@ def write_all_match_ids():
         result.append(new_event_id)
         joblib.dump(result, "event_and_match_ids.pkl")
         print("length of event and match ids: ", len(result))
-        time.sleep(.5)
+        time.sleep(.1)
 
 def print_match_ids():
     event_and_match_ids = joblib.load("event_and_match_ids.pkl")
@@ -258,7 +314,9 @@ def print_match_ids():
 
 if __name__ == "__main__":
     #print_match_ids()
+    #write_all_event_ids()
     #write_all_match_ids()
-    populate_match_statistics()
+    #populate_match_statistics()
+    map_player_rankings()
 
     
