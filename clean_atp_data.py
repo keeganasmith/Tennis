@@ -5,15 +5,11 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import json
-PLAYER1_SERV1_WON_COL = "PlayerTeam1.Sets[0].Stats.ServiceStats.FirstServe.Dividend"
-PLAYER1_SERV1_TOTAL_COL = "PlayerTeam1.Sets[0].Stats.ServiceStats.FirstServe.Divisor"
-PLAYER1_SERV2_WON_COL = "PlayerTeam1.Sets[0].Stats.ServiceStats.SecondServe.Dividend"
-PLAYER1_SERV2_TOTAL_COL = "PlayerTeam1.Sets[0].Stats.ServiceStats.SecondServe.Divisor"
+PLAYER1_SERVE_WON="PlayerTeam1.Sets[0].Stats.PointStats.TotalServicePointsWon.Dividend"
+PLAYER1_SERVE_TOTAL="PlayerTeam1.Sets[0].Stats.PointStats.TotalServicePointsWon.Divisor"
 
-PLAYER2_SERV1_WON_COL = "PlayerTeam2.Sets[0].Stats.ServiceStats.FirstServe.Dividend"
-PLAYER2_SERV1_TOTAL_COL = "PlayerTeam2.Sets[0].Stats.ServiceStats.FirstServe.Divisor"
-PLAYER2_SERV2_WON_COL = "PlayerTeam2.Sets[0].Stats.ServiceStats.SecondServe.Dividend"
-PLAYER2_SERV2_TOTAL_COL = "PlayerTeam2.Sets[0].Stats.ServiceStats.SecondServe.Divisor"
+PLAYER2_SERVE_WON="PlayerTeam2.Sets[0].Stats.PointStats.TotalServicePointsWon.Dividend"
+PLAYER2_SERVE_TOTAL="PlayerTeam2.Sets[0].Stats.PointStats.TotalServicePointsWon.Divisor"
 
 class PlayerRank:
     """
@@ -33,6 +29,75 @@ class PlayerRank:
     
     def __str__(self):
         return json.dumps(self.__dict__, indent=4)
+
+def retrieve_player_stats(match_df, num_years):
+    date_column = "StartDate"
+    # Sort by tourney_date
+    match_df = match_df.sort_values(date_column).reset_index(drop=True)
+
+    # Create a long-format DataFrame for easier aggregation
+    print("CREATING PLAYER STATS DATAFRAME")
+    player_stats = pd.DataFrame({
+        "player_id": match_df["PlayerTeam1.PlayerId"].tolist() + match_df["PlayerTeam2.PlayerId"].tolist(),
+        "match_id": match_df["match_id"].tolist() + match_df["match_id"].tolist(),  # Use match_id for merging
+        date_column: match_df[date_column].tolist() + match_df[date_column].tolist(),
+        "serve_pct": match_df["w_serve_pct"].tolist() + match_df["l_serve_pct"].tolist(),
+        "bp_saved_pct": match_df["w_bp_save_pct"].tolist() + match_df["l_bp_save_pct"].tolist(),
+        "is_winner": [1] * len(match_df) + [0] * len(match_df)
+    })
+
+    # Sort player_stats by player_id and tourney_date
+    print("SORTING PLAYER STATS")
+    player_stats = player_stats.sort_values(["player_id", date_column]).reset_index(drop=True)
+
+    # Add columns for the rolling sum and count within the last num_years
+    player_stats["rolling_serve_pct_sum"] = 0.0
+    player_stats["rolling_match_count"] = 0
+    player_stats["matches_won"] = 0
+    player_stats["rolling_bp_pct_sum"] = 0.0
+    print("SLIDING WINDOW")
+    # Use a sliding window to calculate the rolling stats
+    for player_id, group in player_stats.groupby("player_id"):
+        serve_pct_sum = 0
+        match_count = 0
+        matches_won = 0
+        bp_pct_sum = 0
+        j = 0  # Sliding window pointer
+
+        for i in range(len(group)):
+            current_date = group.iloc[i][date_column]
+            cutoff_date = current_date.replace(year=current_date.year - num_years)
+
+            # Slide the window to exclude matches older than num_years
+            while j < i and group.iloc[j][date_column] < cutoff_date:
+                serve_pct_sum -= group.iloc[j]["serve_pct"]
+                bp_pct_sum -= group.iloc[j]["bp_saved_pct"]
+                matches_won -= group.iloc[j]["is_winner"]
+                match_count -= 1
+                j += 1
+
+            # Assign rolling sum and count (excluding current match)
+            player_stats.loc[group.index[i], "rolling_serve_pct_sum"] = serve_pct_sum
+            player_stats.loc[group.index[i], "rolling_match_count"] = match_count
+            player_stats.loc[group.index[i], "matches_won"] = matches_won
+            player_stats.loc[group.index[i], "rolling_bp_pct_sum"] = bp_pct_sum
+            # Update rolling sum and count for the next iteration (excluding current match)
+            serve_pct_sum += group.iloc[i]["serve_pct"]
+            bp_pct_sum += group.iloc[i]["bp_saved_pct"]
+            matches_won += group.iloc[i]["is_winner"]
+            match_count += 1
+
+    # Calculate rolling averages
+    print("ROLLING AVERAGES")
+    player_stats["rolling_avg_serve_pct"] = (
+        player_stats["rolling_serve_pct_sum"] / player_stats["rolling_match_count"]
+    ).fillna(0)
+    player_stats["rolling_avg_bp_pct"] = (
+        player_stats["rolling_bp_pct_sum"] / player_stats["rolling_match_count"]
+    ).fillna(0)
+    new_stat_columns = ["rolling_avg_serve_pct", "rolling_avg_bp_pct", "rolling_match_count", "matches_won"]
+    return player_stats, new_stat_columns
+
 def handle_na(my_df):
     my_df = my_df.dropna()
     return my_df
@@ -147,9 +212,15 @@ def cols_to_remove_before_training(df):
             if word in column and column in df.columns:
                 df = df.drop(columns = column)
     return df
+
 def add_features(df):
-    df["PlayerTeam1.serve_pct"] = (df[PLAYER1_SERV1_WON_COL] + df[PLAYER1_SERV2_WON_COL]) / (df[PLAYER1_SERV1_TOTAL_COL] + df[PLAYER1_SERV2_TOTAL_COL])
-    df["PlayerTeam2.serve_pct"] = (df["l_1stWon"] + match_df["l_2ndWon"]) / match_df["l_svpt"]
+    df["PlayerTeam1.serve_pct"] = df[PLAYER1_SERVE_WON] / df[PLAYER1_SERVE_TOTAL]
+    df["PlayerTeam2.serve_pct"] = df[PLAYER2_SERVE_WON] / df[PLAYER2_SERVE_TOTAL]
+    df["match_id"] = df["MatchId"] + "-" + df[""]
+    print(df["PlayerTeam1.serve_pct"].mean())
+    print(df["PlayerTeam2.serve_pct"].mean())
+    return df
+
 def main():
     write_player_ranking_db = False
     if(write_player_ranking_db):
@@ -163,7 +234,7 @@ def main():
 
     df = joblib.load("./data/atp_with_rankings.pkl")
     pd.set_option('display.max_rows', 500)
-    print(df.isna().sum())
+    df = add_features(df)
     df["PlayerTeam1.won"] = 0  
     df["PlayerTeam1.PlayerId"] = df["PlayerTeam1.PlayerId"].astype(str)
     df["WinningPlayerId"] = df["WinningPlayerId"].astype(str)
