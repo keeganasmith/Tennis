@@ -58,11 +58,11 @@ def train(X_train, X_test, Y_train, Y_test):
 
 def main():
     # Load dataset
-    df = joblib.load("processed_df.pkl")
+    df = joblib.load("./data/preprocessed_df.pkl")
     df = df.sample(frac=1, random_state=42)
 
     # Define target and features
-    target_column = "player1_won"
+    target_column = "PlayerTeam1.won"
     X = df.drop(columns=[target_column]).values
     Y = df[target_column].values 
 

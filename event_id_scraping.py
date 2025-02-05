@@ -75,18 +75,30 @@ def map_player_rankings():
     current_player_mappings = {}
     try:
         current_player_mappings = joblib.load("./data/player_rankings.pkl")
-    except:
+    except Exception as e:
+        print(e)
         print("player rankings not found")
-        
+    i = 0
     for id in unique_players:
         if(id in current_player_mappings):
             print("already exists")
             continue
         ranking_results = retrieve_player_historical_rankings(id)
+        num_attempts = 0
+        while((ranking_results is None) and (num_attempts < 5)):
+            ranking_results = retrieve_player_historical_rankings(id)
+            num_attempts += 1
+            time.sleep(.1)
+        if(ranking_results is None):
+            print("result was None continuing")
+            continue
         current_player_mappings[id] = ranking_results
-        joblib.dump(current_player_mappings, "./data/player_rankings.pkl")
+        if(i % 100 == 0):
+            joblib.dump(current_player_mappings, "./data/player_rankings.pkl")
         print("progress: ", len(current_player_mappings.keys()), "/", len(unique_players))
+        i += 1
         time.sleep(.1)
+    joblib.dump(current_player_mappings, "./data/player_rankings.pkl")
     
 def remove_irrelevant_keys(my_dict):
     keys = list(my_dict.keys())
