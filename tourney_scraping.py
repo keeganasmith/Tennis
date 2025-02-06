@@ -5,6 +5,7 @@ import joblib
 import random
 import string
 import time
+
 def random_three_letter_string():
     return ''.join(random.choices(string.ascii_lowercase, k=3))
 
