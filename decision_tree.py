@@ -9,21 +9,33 @@ import joblib
 print("Scikit-Learn Version:", sklearn.__version__)
 print("XGBoost Version:", xgb.__version__)
 def search(X_train, X_test, Y_train, Y_test):
-        # Define XGBoost model
-    xgb_model = xgb.XGBClassifier(eval_metric="logloss")
+    # Define the XGBoost model (note: setting use_label_encoder=False avoids a warning)
+    xgb_model = xgb.XGBClassifier(eval_metric="logloss", use_label_encoder=False)
 
-    # Define hyperparameter grid
+    # Expanded hyperparameter grid for tuning
     param_grid = {
         "max_depth": [3, 6, 9],
-        "learning_rate": [0.01, 0.1, 0.3],
-        "n_estimators": [50, 100, 200]
+        "learning_rate": [0.01, 0.1, 0.2, 0.3],
+        "n_estimators": [100, 200, 300],
+        "subsample": [0.6, 0.8, 1.0],
+        "colsample_bytree": [0.6, 0.8, 1.0],
+        "min_child_weight": [1, 5, 10],
+        "reg_lambda": [0, 1, 10],   # L2 regularization
+        "reg_alpha": [0, 0.1, 1]    # L1 regularization
     }
 
-    # Perform grid search
-    grid_search = GridSearchCV(xgb_model, param_grid, scoring="accuracy", cv=3, verbose=1)
+    # Perform grid search using all available cores (n_jobs=-1)
+    grid_search = GridSearchCV(
+        estimator=xgb_model,
+        param_grid=param_grid,
+        scoring="accuracy",
+        cv=3,
+        verbose=1,
+        n_jobs=-1
+    )
     grid_search.fit(X_train, Y_train)
 
-    # Get best parameters
+    # Output the best hyperparameters
     print("Best Hyperparameters:", grid_search.best_params_)
     
 def train(X_train, X_test, Y_train, Y_test):
