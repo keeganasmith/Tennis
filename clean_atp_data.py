@@ -23,6 +23,12 @@ PLAYER1_BP_CONVERTED_TOTAL="PlayerTeam1.Sets[0].Stats.ReturnStats.BreakPointsCon
 PLAYER2_BP_CONVERTED="PlayerTeam2.Sets[0].Stats.ReturnStats.BreakPointsConverted.Dividend"
 PLAYER2_BP_CONVERTED_TOTAL="PlayerTeam2.Sets[0].Stats.ReturnStats.BreakPointsConverted.Divisor"
 
+PLAYER1_RETURN = "PlayerTeam1.Sets[0].Stats.PointStats.TotalReturnPointsWon.Dividend"
+PLAYER1_RETURN_TOTAL = "PlayerTeam2.Sets[0].Stats.PointStats.TotalReturnPointsWon.Divisor"
+
+PLAYER2_RETURN = "PlayerTeam2.Sets[0].Stats.PointStats.TotalReturnPointsWon.Dividend"
+PLAYER2_RETURN_TOTAL = "PlayerTeam2.Sets[0].Stats.PointStats.TotalReturnPointsWon.Divisor"
+
 class PlayerRank:
     """
     'RankDate': '1995-01-09T00:00:00', 'SglRollRank': 2, 'SglRollTie': False, 'SglRollPoints': 0, 'SglRaceRank': 0, 'SglRaceTie': False, 'SglRacePoints': 0, 'DblRollRank': 626, 'DblRollTie': False, 'DblRollPoints'
@@ -91,7 +97,7 @@ def retrieve_player_stats(match_df, num_years):
 
     # Sort DataFrame by date
     match_df = match_df.sort_values(date_column).reset_index(drop=True)
-
+    match_df["PlayerTeam1.opponent_factor"] = match_df["PlayerTeam2."]
     # Create long-format player stats DataFrame
     print("CREATING PLAYER STATS DATAFRAME")
     player_stats = pd.DataFrame({
@@ -101,6 +107,7 @@ def retrieve_player_stats(match_df, num_years):
         "serve_pct": match_df["PlayerTeam1.serve_pct1"].tolist() + match_df["PlayerTeam2.serve_pct1"].tolist(),
         "bp_saved_pct": match_df["PlayerTeam1.bp_save_pct1"].tolist() + match_df["PlayerTeam2.bp_save_pct1"].tolist(),
         "bp_conv_pct": match_df["PlayerTeam1.bp_conv_pct1"].tolist() + match_df["PlayerTeam2.bp_conv_pct1"].tolist(),
+        "return_pct": match_df["PlayerTeam1.return_pct1"].tolist() + match_df["PlayerTeam2.return_pct1"].tolist(),
         "is_winner": [1] * len(match_df) + [0] * len(match_df)
     })
 
@@ -127,6 +134,7 @@ def retrieve_player_stats(match_df, num_years):
         group["rolling_match_count"] = group["is_winner"].shift(1).rolling(f"{window_days}D").count().fillna(0)
         group["rolling_serve_pct_sum"] = group["serve_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
         group["rolling_bp_pct_sum"] = group["bp_saved_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
+        group["rolling_return_pct_sum"] = group["return_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
         group["bp_conv_pct_sum"] = group["bp_conv_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
         group["matches_won"] = group["is_winner"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
 
@@ -139,6 +147,9 @@ def retrieve_player_stats(match_df, num_years):
         ).fillna(0)
         group["rolling_avg_bp_conv_pct"] = (
             group["bp_conv_pct_sum"] / group["rolling_match_count"]
+        )
+        group["rolling_avg_return_pct"] = (
+            group["rolling_return_pct_sum"] / group["rolling_match_count"]
         )
         # Reset index back to normal
         group = group.reset_index()
@@ -156,7 +167,8 @@ def retrieve_player_stats(match_df, num_years):
     player_stats["rolling_avg_serve_pct"].fillna(0, inplace=True)
     player_stats["rolling_avg_bp_pct"].fillna(0, inplace=True)
     player_stats["rolling_avg_bp_conv_pct"].fillna(0, inplace=True)
-    new_stat_columns = ["rolling_avg_serve_pct", "rolling_avg_bp_pct", "rolling_match_count", "matches_won", "rolling_avg_bp_conv_pct"]
+    player_stats["rolling_avg_return_pct"].fillna(0, inplace=True)
+    new_stat_columns = ["rolling_avg_serve_pct", "rolling_avg_bp_pct", "rolling_match_count", "matches_won", "rolling_avg_bp_conv_pct", "rolling_avg_return_pct"]
     
     return player_stats, new_stat_columns
 
@@ -185,10 +197,14 @@ def add_features(df):
     df["PlayerTeam2.bp_save_pct1"] = df[PLAYER2_BP_WON] / df[PLAYER2_BP_TOTAL]
     df["PlayerTeam1.bp_conv_pct1"] = df[PLAYER1_BP_CONVERTED] / df[PLAYER1_BP_CONVERTED_TOTAL]
     df["PlayerTeam2.bp_conv_pct1"] = df[PLAYER2_BP_CONVERTED] / df[PLAYER2_BP_CONVERTED_TOTAL]
+    df["PlayerTeam1.return_pct1"] = df[PLAYER1_RETURN] / df[PLAYER1_RETURN_TOTAL]
+    df["PlayerTeam2.return_pct1"] = df[PLAYER2_RETURN] / df[PLAYER2_RETURN_TOTAL]
     df = replace_divide_by_zero(df, PLAYER1_BP_TOTAL, "PlayerTeam1.bp_save_pct1")
     df = replace_divide_by_zero(df, PLAYER2_BP_TOTAL, "PlayerTeam2.bp_save_pct1")
     df = replace_divide_by_zero(df, PLAYER1_BP_CONVERTED, "PlayerTeam1.bp_conv_pct1")
     df = replace_divide_by_zero(df, PLAYER2_BP_CONVERTED, "PlayerTeam2.bp_conv_pct1")
+    df = replace_divide_by_zero(df, PLAYER1_RETURN, "PlayerTeam1.return_pct1")
+    df = replace_divide_by_zero(df, PLAYER2_RETURN, "PlayerTeam2.return_pct1")
     df["match_id"] = df["MatchId"].astype(str) + "-" + df["EventId"].astype(str) + "-" + df["EventYear"].astype(str)
     player_stats, new_stats_columns = retrieve_player_stats(df, 3)    
     # Merge rolling averages back into the original DataFrame using match_id
@@ -206,6 +222,8 @@ def add_features(df):
     print("AVG SERVE PCT", df["PlayerTeam2.rolling_avg_serve_pct"].median())
     print("AVG BP PCT:", df["PlayerTeam1.rolling_avg_bp_pct"].mean())
     print("AVG BP PCT:", df["PlayerTeam2.rolling_avg_bp_pct"].mean())
+    print("AVG SERVE PCT:", df["PlayerTeam1.rolling_avg_return_pct"].mean())
+    print("AVG SERVE PCT:", df["PlayerTeam2.rolling_avg_return_pct"].mean())
     return df
 
 def handle_na(my_df):
@@ -315,7 +333,7 @@ def add_rankings_to_dataset(my_df, player_rankings):
 def cols_to_remove_before_training(df):
     bad_words = [
         "Sets[", "TournamentName", "Doubles", "Singles", "Date", "EventYear", "EventId", "Round", "Time", "Winner", "Winning", "NumberOfSets", "MatchId", "TournamentCity", "Id", "Name", "Country", "match_id",
-        "serve_pct1", "bp_save_pct1"
+        "serve_pct1", "pct1"
     ]
     orig_columns = list(df.columns)
     for column in orig_columns:
@@ -352,6 +370,9 @@ def main():
     df = handle_na(df)
     # print(df.isna().sum())
     # print(df.dtypes)
+    # print("Player 1 rolling average: ", df["PlayerTeam1.rolling_avg_bp_conv_pct"].mean())
+    # print("Player 2 rolling average: ", df["PlayerTeam2.rolling_avg_bp_conv_pct"].mean())
+
     df = convert_to_ints(df)
     df = swap_and_add(df)
     print(df.isna().sum())
