@@ -5,6 +5,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import json
+import warnings
+warnings.simplefilter(action='ignore', category=Warning)
+
 PLAYER1_SERVE_WON="PlayerTeam1.Sets[0].Stats.PointStats.TotalServicePointsWon.Dividend"
 PLAYER1_SERVE_TOTAL="PlayerTeam1.Sets[0].Stats.PointStats.TotalServicePointsWon.Divisor"
 
@@ -53,12 +56,12 @@ def replace_divide_by_zero(df, divisor_col, resulting_col):
     df.loc[df[divisor_col] == 0, resulting_col] = 0
     return df
 
-def fill_na_columns(match_df, columns, value):
+def fill_na_columns(df, columns, value):
     values = {}
     for column in columns:
         values[column] = value
-    match_df = match_df.fillna(value = values)
-    return match_df
+    df = df.fillna(value = values)
+    return df
 
 def get_new_column_names(columns, prefix):
     result = []
@@ -66,10 +69,10 @@ def get_new_column_names(columns, prefix):
         result.append(prefix + "." + column)
     return result
 
-def compute_surface_stats(match_df, num_years):
-    new_df = match_df.copy()
+def compute_surface_stats(df, num_years):
+    new_df = df.copy()
     
-    for surface_type, group in match_df.groupby("Court"):
+    for surface_type, group in df.groupby("Court"):
         player_stats, stats_columns = retrieve_player_stats(group, num_years)
         w_prefix = "PlayerTeam1." + surface_type
         l_prefix = "PlayerTeam2." + surface_type
@@ -83,95 +86,174 @@ def compute_surface_stats(match_df, num_years):
         new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, loser_rename_mapping, 0)
         new_df = fill_na_columns(new_df, winner_columns + loser_columns, 0)
         
-    match_df = new_df
-    return match_df
+    df = new_df
+    return df
 
-def retrieve_player_stats(match_df, num_years):
-    date_column = "StartDate"
+def generate_adjusted_rolling_columns(df, columns):
+    for team in ["PlayerTeam1", "PlayerTeam2"]:
+        for column in columns:
+            df[team + "." + column + ".adjusted"] = df[team + "." + column] * df[team + ".opponent_factor"]
+    return df
+
+def compute_rolling(group, col, window_days, func, shift=1):
+    """
+    Compute a rolling statistic on a column with a shifted window.
     
-    # Convert StartDate to datetime format (important for rolling calculations)
-    match_df[date_column] = pd.to_datetime(match_df[date_column], errors="coerce")
+    Parameters:
+        group (DataFrame): The group to operate on (with a DatetimeIndex).
+        col (str): The source column name.
+        window_days (int): Window size in days.
+        func (str): Aggregation function as a string (e.g., 'sum', 'count').
+        shift (int): How many periods to shift (default is 1 to exclude current row).
+    
+    Returns:
+        Series: The rolling aggregation.
+    """
+    return group[col].shift(shift).rolling(f"{window_days}D").agg(func).fillna(0)
 
-    # Drop rows where StartDate conversion failed (if any)
-    match_df = match_df.dropna(subset=[date_column])
-
-    # Sort DataFrame by date
-    match_df = match_df.sort_values(date_column).reset_index(drop=True)
-    match_df["PlayerTeam1.opponent_factor"] = match_df["PlayerTeam2."]
-    # Create long-format player stats DataFrame
-    print("CREATING PLAYER STATS DATAFRAME")
-    player_stats = pd.DataFrame({
-        "player_id": match_df["PlayerTeam1.PlayerId"].tolist() + match_df["PlayerTeam2.PlayerId"].tolist(),
-        "match_id": match_df["match_id"].tolist() + match_df["match_id"].tolist(),
-        date_column: match_df[date_column].tolist() + match_df[date_column].tolist(),
-        "serve_pct": match_df["PlayerTeam1.serve_pct1"].tolist() + match_df["PlayerTeam2.serve_pct1"].tolist(),
-        "bp_saved_pct": match_df["PlayerTeam1.bp_save_pct1"].tolist() + match_df["PlayerTeam2.bp_save_pct1"].tolist(),
-        "bp_conv_pct": match_df["PlayerTeam1.bp_conv_pct1"].tolist() + match_df["PlayerTeam2.bp_conv_pct1"].tolist(),
-        "return_pct": match_df["PlayerTeam1.return_pct1"].tolist() + match_df["PlayerTeam2.return_pct1"].tolist(),
-        "is_winner": [1] * len(match_df) + [0] * len(match_df)
-    })
-
-    # Ensure StartDate is datetime in player_stats too
+def retrieve_player_stats(
+    df,
+    num_years,
+    date_column="StartDate",
+    include_adjusted=True,
+    # Rolling specs for the base columns
+    rolling_specs=None,
+    rolling_avg_specs=None
+):
+    """
+    Converts a wide-format match DataFrame into a long-format player stats DataFrame
+    and computes rolling statistics for each player over a given window (num_years).
+    
+    If include_adjusted is True, additional columns (which are multiplied by the opponent factor)
+    are included and their rolling statistics are computed.
+    """
+    # Default rolling specifications for base stats if none are provided.
+    if rolling_specs is None:
+        rolling_specs = [
+            {"new_col": "rolling_match_count", "source_col": "is_winner", "func": "count"},
+            {"new_col": "rolling_serve_pct_sum", "source_col": "serve_pct", "func": "sum"},
+            {"new_col": "rolling_bp_pct_sum", "source_col": "bp_saved_pct", "func": "sum"},
+            {"new_col": "rolling_bp_conv_pct_sum", "source_col": "bp_conv_pct", "func": "sum"},
+            {"new_col": "rolling_return_pct_sum", "source_col": "return_pct", "func": "sum"},
+            {"new_col": "matches_won", "source_col": "is_winner", "func": "sum"},
+        ]
+    if rolling_avg_specs is None:
+        rolling_avg_specs = [
+            {"new_col": "rolling_avg_serve_pct", "sum_col": "rolling_serve_pct_sum"},
+            {"new_col": "rolling_avg_bp_pct", "sum_col": "rolling_bp_pct_sum"},
+            {"new_col": "rolling_avg_bp_conv_pct", "sum_col": "rolling_bp_conv_pct_sum"},
+            {"new_col": "rolling_avg_return_pct", "sum_col": "rolling_return_pct_sum"},
+        ]
+    
+    # Define adjusted rolling specifications if we want adjusted stats.
+    adjusted_rolling_specs = [
+        {"new_col": "rolling_serve_pct_adjusted_sum", "source_col": "serve_pct_adjusted", "func": "sum"},
+        {"new_col": "rolling_bp_saved_pct_adjusted_sum", "source_col": "bp_saved_pct_adjusted", "func": "sum"},
+        {"new_col": "rolling_bp_conv_pct_adjusted_sum", "source_col": "bp_conv_pct_adjusted", "func": "sum"},
+        {"new_col": "rolling_return_pct_adjusted_sum", "source_col": "return_pct_adjusted", "func": "sum"},
+    ]
+    adjusted_rolling_avg_specs = [
+        {"new_col": "rolling_avg_serve_pct_adjusted", "sum_col": "rolling_serve_pct_adjusted_sum"},
+        {"new_col": "rolling_avg_bp_saved_pct_adjusted", "sum_col": "rolling_bp_saved_pct_adjusted_sum"},
+        {"new_col": "rolling_avg_bp_conv_pct_adjusted", "sum_col": "rolling_bp_conv_pct_adjusted_sum"},
+        {"new_col": "rolling_avg_return_pct_adjusted", "sum_col": "rolling_return_pct_adjusted_sum"},
+    ]
+    
+    # --- Preprocessing: convert date and sort
+    df[date_column] = pd.to_datetime(df[date_column], errors="coerce")
+    df = df.dropna(subset=[date_column])
+    df = df.sort_values(date_column).reset_index(drop=True)
+    
+    # --- Create long-format DataFrame for player stats.
+    # For each match, we create two rows (one for each player).
+    # For base stats we pull from the appropriate team columns.
+    long_data = {
+        "player_id": df["PlayerTeam1.PlayerId"].tolist() + df["PlayerTeam2.PlayerId"].tolist(),
+        "match_id": df["match_id"].tolist() + df["match_id"].tolist(),
+        date_column: df[date_column].tolist() + df[date_column].tolist(),
+        "serve_pct": df["PlayerTeam1.serve_pct1"].tolist() + df["PlayerTeam2.serve_pct1"].tolist(),
+        "bp_saved_pct": df["PlayerTeam1.bp_save_pct1"].tolist() + df["PlayerTeam2.bp_save_pct1"].tolist(),
+        "bp_conv_pct": df["PlayerTeam1.bp_conv_pct1"].tolist() + df["PlayerTeam2.bp_conv_pct1"].tolist(),
+        "return_pct": df["PlayerTeam1.return_pct1"].tolist() + df["PlayerTeam2.return_pct1"].tolist(),
+        "opponent_factor": df["PlayerTeam1.opponent_factor"].tolist() + df["PlayerTeam2.opponent_factor"].tolist(),
+        "is_winner": [1] * len(df) + [0] * len(df)
+    }
+    
+    # If we want adjusted stats, add them as well.
+    if include_adjusted:
+        long_data["serve_pct_adjusted"] = (
+            df["PlayerTeam1.serve_pct1.adjusted"].tolist() +
+            df["PlayerTeam2.serve_pct1.adjusted"].tolist()
+        )
+        long_data["bp_saved_pct_adjusted"] = (
+            df["PlayerTeam1.bp_save_pct1.adjusted"].tolist() +
+            df["PlayerTeam2.bp_save_pct1.adjusted"].tolist()
+        )
+        long_data["bp_conv_pct_adjusted"] = (
+            df["PlayerTeam1.bp_conv_pct1.adjusted"].tolist() +
+            df["PlayerTeam2.bp_conv_pct1.adjusted"].tolist()
+        )
+        long_data["return_pct_adjusted"] = (
+            df["PlayerTeam1.return_pct1.adjusted"].tolist() +
+            df["PlayerTeam2.return_pct1.adjusted"].tolist()
+        )
+    
+    player_stats = pd.DataFrame(long_data)
+    
+    # Ensure the date column is datetime and sort by player_id and date.
     player_stats[date_column] = pd.to_datetime(player_stats[date_column], errors="coerce")
     player_stats = player_stats.dropna(subset=[date_column])
-
-    # Sort player_stats by player_id and date
     print("SORTING PLAYER STATS")
     player_stats.sort_values(["player_id", date_column], inplace=True)
-
-    # Rolling calculations using Pandas
-    print("ROLLING CALCULATIONS")
-
-    # Group by player_id and calculate rolling statistics
-    def rolling_stats(group):
-        # Ensure StartDate is a DatetimeIndex
-        group = group.set_index(date_column)  # Set StartDate as index
-
-        # Convert years to days (approximate rolling window)
-        window_days = num_years * 365
-
-        # **Shift by 1 to exclude the current row from rolling calculations**
-        group["rolling_match_count"] = group["is_winner"].shift(1).rolling(f"{window_days}D").count().fillna(0)
-        group["rolling_serve_pct_sum"] = group["serve_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
-        group["rolling_bp_pct_sum"] = group["bp_saved_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
-        group["rolling_return_pct_sum"] = group["return_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
-        group["bp_conv_pct_sum"] = group["bp_conv_pct"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
-        group["matches_won"] = group["is_winner"].shift(1).rolling(f"{window_days}D").sum().fillna(0)
-
-        # Rolling averages (dividing by match count, avoiding divide by zero)
-        group["rolling_avg_serve_pct"] = (
-            group["rolling_serve_pct_sum"] / group["rolling_match_count"]
-        ).fillna(0)
-        group["rolling_avg_bp_pct"] = (
-            group["rolling_bp_pct_sum"] / group["rolling_match_count"]
-        ).fillna(0)
-        group["rolling_avg_bp_conv_pct"] = (
-            group["bp_conv_pct_sum"] / group["rolling_match_count"]
-        )
-        group["rolling_avg_return_pct"] = (
-            group["rolling_return_pct_sum"] / group["rolling_match_count"]
-        )
-        # Reset index back to normal
-        group = group.reset_index()
-
-        return group
-
-
-
-
-    # Apply rolling stats to each player_id
-    player_stats = player_stats.groupby("player_id", group_keys=False).apply(rolling_stats)
-
-    # Handle divide-by-zero cases
-    print("REPLACING NaN VALUES")
-    player_stats["rolling_avg_serve_pct"].fillna(0, inplace=True)
-    player_stats["rolling_avg_bp_pct"].fillna(0, inplace=True)
-    player_stats["rolling_avg_bp_conv_pct"].fillna(0, inplace=True)
-    player_stats["rolling_avg_return_pct"].fillna(0, inplace=True)
-    new_stat_columns = ["rolling_avg_serve_pct", "rolling_avg_bp_pct", "rolling_match_count", "matches_won", "rolling_avg_bp_conv_pct", "rolling_avg_return_pct"]
     
-    return player_stats, new_stat_columns
+    # --- Rolling Calculations
+    print("ROLLING CALCULATIONS")
+    window_days = num_years * 365  # approximate conversion to days
 
+    def rolling_stats(group):
+        # Set the date column as the index for time-based rolling.
+        group = group.set_index(date_column)
+        
+        # Compute rolling statistics for the base stats.
+        for spec in rolling_specs:
+            new_col = spec["new_col"]
+            source_col = spec["source_col"]
+            func = spec["func"]
+            group[new_col] = compute_rolling(group, source_col, window_days, func, shift=1)
+        
+        for spec in rolling_avg_specs:
+            new_avg_col = spec["new_col"]
+            sum_col = spec["sum_col"]
+            group[new_avg_col] = (group[sum_col] / group["rolling_match_count"]).fillna(0)
+        
+        # If adjusted stats are to be included, compute their rolling values.
+        if include_adjusted:
+            for spec in adjusted_rolling_specs:
+                new_col = spec["new_col"]
+                source_col = spec["source_col"]
+                func = spec["func"]
+                group[new_col] = compute_rolling(group, source_col, window_days, func, shift=1)
+            
+            for spec in adjusted_rolling_avg_specs:
+                new_avg_col = spec["new_col"]
+                sum_col = spec["sum_col"]
+                group[new_avg_col] = (group[sum_col] / group["rolling_match_count"]).fillna(0)
+        
+        # Reset the index so that the date becomes a column again.
+        return group.reset_index()
+
+    # Apply rolling calculations for each player.
+    player_stats = player_stats.groupby("player_id", group_keys=False).apply(rolling_stats)
+    
+    # Collect names of new statistic columns.
+    base_new_stats = [spec["new_col"] for spec in rolling_avg_specs] + ["rolling_match_count", "matches_won"]
+    if include_adjusted:
+        adjusted_new_stats = [spec["new_col"] for spec in adjusted_rolling_avg_specs]
+        new_stat_columns = base_new_stats + adjusted_new_stats
+    else:
+        new_stat_columns = base_new_stats
+
+    return player_stats, new_stat_columns
 
 def get_rename_mapping(original_columns, prefix):
     result = {}
@@ -179,15 +261,15 @@ def get_rename_mapping(original_columns, prefix):
         result[column] = prefix +"." + column
     return result
 
-def merge_dataframes(match_df, other_df, columns_to_merge_on, rename_mapping, is_winner):
-    match_df = match_df.merge(
+def merge_dataframes(df, other_df, columns_to_merge_on, rename_mapping, is_winner):
+    df = df.merge(
         other_df[other_df["is_winner"] == is_winner][columns_to_merge_on],
         left_on="match_id",
         right_on="match_id",
         how="left",
         suffixes=("", "_winner")
     ).rename(columns=rename_mapping)
-    return match_df
+    return df
 
     
 def add_features(df):
@@ -205,6 +287,16 @@ def add_features(df):
     df = replace_divide_by_zero(df, PLAYER2_BP_CONVERTED, "PlayerTeam2.bp_conv_pct1")
     df = replace_divide_by_zero(df, PLAYER1_RETURN, "PlayerTeam1.return_pct1")
     df = replace_divide_by_zero(df, PLAYER2_RETURN, "PlayerTeam2.return_pct1")
+    
+    df["PlayerTeam1.opponent_factor"] = 1 / df["PlayerTeam2.SglRaceRank"]
+    df["PlayerTeam2.opponent_factor"] = 1 / df["PlayerTeam1.SglRaceRank"]
+    df = replace_divide_by_zero(df, "PlayerTeam2.SglRaceRank", "PlayerTeam1.opponent_factor")
+    df = replace_divide_by_zero(df, "PlayerTeam1.SglRaceRank", "PlayerTeam2.opponent_factor")
+    
+    rolling_columns = ["serve_pct1", "bp_save_pct1", "bp_conv_pct1", "return_pct1"]
+    df = generate_adjusted_rolling_columns(df, rolling_columns)
+    #print(df.isna().sum())
+    
     df["match_id"] = df["MatchId"].astype(str) + "-" + df["EventId"].astype(str) + "-" + df["EventYear"].astype(str)
     player_stats, new_stats_columns = retrieve_player_stats(df, 3)    
     # Merge rolling averages back into the original DataFrame using match_id
@@ -214,8 +306,6 @@ def add_features(df):
     print("MERGING ROLLING AVERAGES")
     # Merge for winners
     df = merge_dataframes(df, player_stats, columns_to_merge_on, winner_rename_mapping, 1)
-    print("winner rename mappings: ", winner_rename_mapping)
-    print("loser rename mappings: ", loser_rename_mapping)
     # Merge for losers
     df = merge_dataframes(df, player_stats, columns_to_merge_on, loser_rename_mapping, 0)
     print("AVG SERVE PCT", df["PlayerTeam1.rolling_avg_serve_pct"].median())
@@ -355,7 +445,7 @@ def main():
 
     df = joblib.load("./data/atp_with_rankings.pkl")
     pd.set_option('display.max_rows', 500)
-    print(df.isna().sum())
+    #print(df.isna().sum())
 
     df = add_features(df)
     df = compute_surface_stats(df, 3)
@@ -375,7 +465,10 @@ def main():
 
     df = convert_to_ints(df)
     df = swap_and_add(df)
+    print(len(df))
     print(df.isna().sum())
+    print(df.describe(include="all"))
+
     joblib.dump(df, "./data/preprocessed_df.pkl")
 
 if __name__ == "__main__":
