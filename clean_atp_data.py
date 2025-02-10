@@ -17,6 +17,7 @@ from datetime import datetime
 import json
 import warnings
 from typing import List, Dict, Tuple, Any
+import itertools
 
 warnings.simplefilter(action='ignore', category=Warning)
 
@@ -451,9 +452,12 @@ def cols_to_remove_before_training(df: pd.DataFrame) -> pd.DataFrame:
 def compute_surface_stats(df, num_years):
     """Create new stats for each type of surface"""
     new_df = df.copy()
-    for surface_type, group in df.groupby("Court"):
+    court_groups = df.groupby("Court")
+    indoor_groups = df.groupby("InOutdoor")
+    groups = itertools.chain(court_groups, indoor_groups)
+    for surface_type, group in groups:
         player_stats, stats_columns = retrieve_player_stats(group, num_years)
-        w_prefix = "PlayerTeam1." + surface_type
+        w_prefix = "PlayerTeam1." +  surface_type
         l_prefix = "PlayerTeam2." + surface_type
 
         winner_columns = get_new_column_names(stats_columns, w_prefix)
@@ -464,7 +468,7 @@ def compute_surface_stats(df, num_years):
         new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, winner_rename_mapping, 1)
         new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, loser_rename_mapping, 0)
         new_df = fill_na_columns(new_df, winner_columns + loser_columns, 0)
-    
+
     df = new_df
     return df
 # ======================================================
