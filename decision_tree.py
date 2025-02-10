@@ -48,7 +48,7 @@ def train(X_train, X_test, Y_train, Y_test):
         "objective": "binary:logistic",  # Binary classification
         "eval_metric": "logloss",        # Loss function
         "eta": 0.1,                      # Learning rate
-        "max_depth": None,                   # Depth of trees
+        "max_depth": 6,                   # Depth of trees
         "subsample": 0.8,                 # Fraction of data to use per tree
         "colsample_bytree": 0.8,          # Fraction of features per tree
         "lambda": 1,                      # L2 regularization

@@ -148,7 +148,8 @@ def retrieve_player_stats(
             {"new_col": "rolling_bp_conv_pct_sum", "source_col": "bp_conv_pct", "func": "sum"},
             {"new_col": "rolling_return_pct_sum", "source_col": "return_pct", "func": "sum"},
             {"new_col": "matches_won", "source_col": "is_winner", "func": "sum"},
-            {"new_col": "rolling_aces_pct_sum", "source_col": "aces_pct", "func": "sum"}
+            {"new_col": "rolling_aces_pct_sum", "source_col": "aces_pct", "func": "sum"},
+            {"new_col": "rolling_double_pct_sum", "source_col": "double_pct", "func": "sum"}
         ]
     if rolling_avg_specs is None:
         rolling_avg_specs = [
@@ -156,7 +157,8 @@ def retrieve_player_stats(
             {"new_col": "rolling_avg_bp_pct", "sum_col": "rolling_bp_pct_sum"},
             {"new_col": "rolling_avg_bp_conv_pct", "sum_col": "rolling_bp_conv_pct_sum"},
             {"new_col": "rolling_avg_return_pct", "sum_col": "rolling_return_pct_sum"},
-            {"new_col": "rolling_avg_aces_pct", "sum_col": "rolling_aces_pct_sum"}
+            {"new_col": "rolling_avg_aces_pct", "sum_col": "rolling_aces_pct_sum"},
+            {"new_col": "rolling_avg_double_pct", "sum_col": "rolling_double_pct_sum"}
         ]
     
     adjusted_rolling_specs = [
@@ -184,6 +186,7 @@ def retrieve_player_stats(
         "bp_conv_pct": df["PlayerTeam1.bp_conv_pct1"].tolist() + df["PlayerTeam2.bp_conv_pct1"].tolist(),
         "return_pct": df["PlayerTeam1.return_pct1"].tolist() + df["PlayerTeam2.return_pct1"].tolist(),
         "aces_pct": df["PlayerTeam1.aces_pct1"].tolist() + df["PlayerTeam2.aces_pct1"].tolist(),
+        "double_pct": df["PlayerTeam1.double_pct1"].tolist() + df["PlayerTeam2.double_pct1"].tolist(),
         "opponent_factor": df["PlayerTeam1.opponent_factor"].tolist() + df["PlayerTeam2.opponent_factor"].tolist(),
         "is_winner": [1] * len(df) + [0] * len(df)
     }
@@ -270,6 +273,8 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["PlayerTeam2.return_pct1"] = df[PLAYER2_RETURN] / df[PLAYER2_RETURN_TOTAL]
     df["PlayerTeam1.aces_pct1"] = df[PLAYER1_ACES] / df[PLAYER1_SERVE_TOTAL]
     df["PlayerTeam2.aces_pct1"] = df[PLAYER2_ACES] / df[PLAYER2_SERVE_TOTAL]
+    df["PlayerTeam1.double_pct1"] = df[PLAYER1_DOUBLE] / df[PLAYER1_SERVE_TOTAL]
+    df["PlayerTeam2.double_pct1"] = df[PLAYER2_DOUBLE] / df[PLAYER2_SERVE_TOTAL]
     
     df = replace_divide_by_zero(df, PLAYER1_BP_TOTAL, "PlayerTeam1.bp_save_pct1")
     df = replace_divide_by_zero(df, PLAYER2_BP_TOTAL, "PlayerTeam2.bp_save_pct1")
@@ -478,9 +483,17 @@ def main() -> None:
 
     df = joblib.load("./data/atp_with_rankings.pkl")
     pd.set_option('display.max_rows', 500)
-    df = df[df[PLAYER1_SERVE_TOTAL] != 0]
-    df = df[df[PLAYER2_SERVE_TOTAL] != 0]
-    print(df.isna().sum())
+    pd.set_option('display.max_columns', 500)
+    print("Before filtering:", df.shape)
+    print(df.describe())
+    df = df[df[PLAYER1_SERVE_TOTAL] > 0]
+    df = df[df[PLAYER2_SERVE_TOTAL] > 0]
+    df = df[df[PLAYER1_RETURN_TOTAL] > 0]
+    df = df[df[PLAYER2_RETURN_TOTAL] > 0]
+    print("After filtering:", df.shape)
+    print(df.describe())
+    # print("DF IS only: ", len(df))
+    # print(df.isna().sum())
     df = add_features(df)
     df = compute_surface_stats(df, 3)
     
