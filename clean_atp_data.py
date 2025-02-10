@@ -176,7 +176,8 @@ def retrieve_player_stats(
             {"new_col": "rolling_return_pct_sum", "source_col": "return_pct", "func": "sum"},
             {"new_col": "matches_won", "source_col": "is_winner", "func": "sum"},
             {"new_col": "rolling_aces_pct_sum", "source_col": "aces_pct", "func": "sum"},
-            {"new_col": "rolling_double_pct_sum", "source_col": "double_pct", "func": "sum"}
+            {"new_col": "rolling_double_pct_sum", "source_col": "double_pct", "func": "sum"},
+            {"new_col": "rolling_sgl_roll_rank", "source_col": "sgl_roll_rank", "func": "sum"}
         ]
     if rolling_avg_specs is None:
         rolling_avg_specs = [
@@ -185,7 +186,8 @@ def retrieve_player_stats(
             {"new_col": "rolling_avg_bp_conv_pct", "sum_col": "rolling_bp_conv_pct_sum"},
             {"new_col": "rolling_avg_return_pct", "sum_col": "rolling_return_pct_sum"},
             {"new_col": "rolling_avg_aces_pct", "sum_col": "rolling_aces_pct_sum"},
-            {"new_col": "rolling_avg_double_pct", "sum_col": "rolling_double_pct_sum"}
+            {"new_col": "rolling_avg_double_pct", "sum_col": "rolling_double_pct_sum"},
+            {"new_col": "rolling_avg_sgl_roll", "sum_col": "rolling_sgl_roll_rank"}
         ]
     
     adjusted_rolling_specs = [
@@ -215,6 +217,7 @@ def retrieve_player_stats(
         "aces_pct": df["PlayerTeam1.aces_pct1"].tolist() + df["PlayerTeam2.aces_pct1"].tolist(),
         "double_pct": df["PlayerTeam1.double_pct1"].tolist() + df["PlayerTeam2.double_pct1"].tolist(),
         "opponent_factor": df["PlayerTeam1.opponent_factor"].tolist() + df["PlayerTeam2.opponent_factor"].tolist(),
+        "sgl_roll_rank": df["PlayerTeam1.SglRollRank"].tolist() + df["PlayerTeam2.SglRollRank"].tolist(),
         "is_winner": [1] * len(df) + [0] * len(df)
     }
     if include_adjusted:
@@ -311,8 +314,8 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df = replace_divide_by_zero(df, PLAYER2_RETURN, "PlayerTeam2.return_pct1")
     
     # Create opponent factor as reciprocal of the opponent's ranking statistic.
-    df["PlayerTeam1.opponent_factor"] = 1 / df["PlayerTeam2.SglRaceRank"]
-    df["PlayerTeam2.opponent_factor"] = 1 / df["PlayerTeam1.SglRaceRank"]
+    df["PlayerTeam1.opponent_factor"] = 1 / df["PlayerTeam2.SglRollRank"]
+    df["PlayerTeam2.opponent_factor"] = 1 / df["PlayerTeam1.SglRollRank"]
     df = replace_divide_by_zero(df, "PlayerTeam2.SglRaceRank", "PlayerTeam1.opponent_factor")
     df = replace_divide_by_zero(df, "PlayerTeam1.SglRaceRank", "PlayerTeam2.opponent_factor")
     
@@ -342,7 +345,6 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     print("PlayerTeam2 rolling_avg_bp_pct mean:", df["PlayerTeam2.rolling_avg_bp_pct"].mean())
     print("PlayerTeam1 rolling_avg_return_pct mean:", df["PlayerTeam1.rolling_avg_return_pct"].mean())
     print("PlayerTeam2 rolling_avg_return_pct mean:", df["PlayerTeam2.rolling_avg_return_pct"].mean())
-    
     return df
 
 
@@ -359,12 +361,12 @@ def convert_to_ints(df: pd.DataFrame) -> pd.DataFrame:
     categorical_columns = ["EventType", "Court", "InOutdoor"]
     df = pd.get_dummies(df, columns=categorical_columns, dtype=int)
     
-    binary_columns = [
-        "PlayerTeam1.SglRollTie", "PlayerTeam1.SglRaceTie", "PlayerTeam1.DblRollTie",
-        "PlayerTeam2.SglRollTie", "PlayerTeam2.SglRaceTie", "PlayerTeam2.DblRollTie"
-    ]
-    for col in binary_columns:
-        df[col] = df[col].astype(int)
+    # binary_columns = [
+    #     "PlayerTeam1.SglRollTie", "PlayerTeam1.SglRaceTie", "PlayerTeam1.DblRollTie",
+    #     "PlayerTeam2.SglRollTie", "PlayerTeam2.SglRaceTie", "PlayerTeam2.DblRollTie"
+    # ]
+    # for col in binary_columns:
+    #     df[col] = df[col].astype(int)
     return df
 
 
@@ -468,7 +470,8 @@ def cols_to_remove_before_training(df: pd.DataFrame) -> pd.DataFrame:
     bad_words = [
         "Sets[", "TournamentName", "Doubles", "Singles", "Date", "EventYear", "EventId",
         "Round", "Time", "Winner", "Winning", "NumberOfSets", "MatchId", "TournamentCity",
-        "Id", "Name", "Country", "match_id", "serve_pct1", "pct1", "TourneyLocation"
+        "Id", "Name", "Country", "match_id", "pct1", "TourneyLocation", "Tie",
+        "opponent_factor", "date", "days_since_last"
     ]
     for col in list(df.columns):
         if any(bad in col for bad in bad_words):
@@ -513,7 +516,36 @@ def home_field_advantage(df):
     # print(df["PlayerTeam1.homefield"].describe())
     # print(df["PlayerTeam2.homefield"].describe())
     return df
+
+def compute_time_since_last_tournament(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For each player (both for PlayerTeam1 and PlayerTeam2), compute the number of days since
+    their previous tournament (based on the tournament StartDate) and add these as new features.
     
+    Note:
+      - This function processes each player's tournament history in chronological order,
+        ensuring that only past tournaments are used in the calculation.
+      - To avoid data leakage, it is important that you perform a time-based train/test split 
+        (or otherwise restrict future information) before using these features in modeling.
+    """
+    df["StartDate"] = pd.to_datetime(df["StartDate"], errors="coerce")
+    
+    def compute_for_player(group: pd.DataFrame, player_prefix: str) -> pd.DataFrame:
+        group = group.sort_values("StartDate")
+        previous_date = group["StartDate"].shift(1)
+        days_since = (group["StartDate"] - previous_date).dt.days.fillna(0).astype(int)
+        group[f"{player_prefix}.days_since_last"] = days_since
+        return group
+    
+    df = df.groupby("PlayerTeam1.PlayerId", group_keys=False).apply(
+        lambda grp: compute_for_player(grp, "PlayerTeam1")
+    )
+    df = df.groupby("PlayerTeam2.PlayerId", group_keys=False).apply(
+        lambda grp: compute_for_player(grp, "PlayerTeam2")
+    )
+    
+    return df
+
 # ======================================================
 # Main Pipeline
 # ======================================================
@@ -530,6 +562,7 @@ def main() -> None:
 
     df = joblib.load("./data/atp_with_rankings.pkl")
     df = home_field_advantage(df)
+    
     pd.set_option('display.max_rows', 500)
     pd.set_option('display.max_columns', 500)
     # print("Before filtering:", df.shape)
@@ -541,10 +574,10 @@ def main() -> None:
     # print("After filtering:", df.shape)
     # print(df.describe())
     # print("DF IS only: ", len(df))
-    print(df.isna().sum())
+    #print(df.isna().sum())
     df = add_features(df)
     df = compute_surface_stats(df, 3)
-    
+    df = compute_time_since_last_tournament(df)
     # Set outcome for PlayerTeam1.won (1 for winner, 0 otherwise)
     df["PlayerTeam1.won"] = 0  
     df["PlayerTeam1.PlayerId"] = df["PlayerTeam1.PlayerId"].astype(str)
@@ -552,14 +585,16 @@ def main() -> None:
     df.loc[df["PlayerTeam1.PlayerId"] == df["WinningPlayerId"], "PlayerTeam1.won"] = 1
     
     df = cols_to_remove_before_training(df)
-    df = handle_na(df)
     df = convert_to_ints(df)
+
+    df = handle_na(df)
+
     df = swap_and_add(df)
     
     print("Final dataset length:", len(df))
     print("Missing values per column:\n", df.isna().sum())
     print("Dataset summary:\n", df.describe(include="all"))
-    print(df.columns)
+    print(list(df.columns))
     joblib.dump(df, "./data/preprocessed_df.pkl")
 
 if __name__ == "__main__":

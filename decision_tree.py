@@ -13,18 +13,17 @@ print("Scikit-Learn Version:", sklearn.__version__)
 print("XGBoost Version:", xgb.__version__)
 def search(X_train, X_test, Y_train, Y_test):
     # Define the XGBoost model
-    xgb_model = xgb.XGBClassifier(eval_metric="logloss", use_label_encoder=False)
+    xgb_model = xgb.XGBClassifier(eval_metric="logloss")
 
     # Hyperparameter grid for tuning
     param_grid = {
-    "max_depth": [3, 6],                      # Remove 9 (often too deep for practical use)
-    "learning_rate": [0.1, 0.2],              # Focus on two mid-range values
-    "n_estimators": [100, 200],               # Remove 300 (simplifies search)
-    "subsample": [0.8],                       # Use 0.8 (common optimal value)
-    "colsample_bytree": [0.8],                # Same as subsample to reduce redundancy
-    "min_child_weight": [1, 5],               # Remove 10
-    "reg_lambda": [1],                        # Use the most common value
-    "reg_alpha": [0, 0.1]                     # Focus on smaller regularization values
+    "max_depth": [None],                   # Depth of trees
+    "subsample": [0.8],                 # Fraction of data to use per tree
+    "colsample_bytree": [0.8],          # Fraction of features per tree
+    "lambda": [1],                      # L2 regularization
+    "alpha": [0],  
+    "eta": [.01],                          # L1 regularization
+    "n_estimators": [2500,2750, 3000, 3250, 3500]
 }
 
     # Perform HalvingGridSearchCV using all available cores (n_jobs=-1)
@@ -32,7 +31,7 @@ def search(X_train, X_test, Y_train, Y_test):
         estimator=xgb_model,
         param_grid=param_grid,
         scoring="accuracy",
-        factor=3,  # Reduce candidates by a factor of 3 each iteration
+        factor=2,  # Reduce candidates by a factor of 3 each iteration
         cv=3,
         verbose=1,
         n_jobs=-1,
@@ -56,7 +55,7 @@ def train(X_train, X_test, Y_train, Y_test):
     params = {
         "objective": "binary:logistic",  # Binary classification
         "eval_metric": "logloss",        # Loss function
-        "eta": 0.1,                      # Learning rate
+        "eta": 0.01,                      # Learning rate
         "max_depth": None,                   # Depth of trees
         "subsample": 0.8,                 # Fraction of data to use per tree
         "colsample_bytree": 0.8,          # Fraction of features per tree
@@ -64,7 +63,7 @@ def train(X_train, X_test, Y_train, Y_test):
         "alpha": 0,                       # L1 regularization
     }
     # Train the model
-    num_rounds = 350  # Number of boosting rounds
+    num_rounds = 2750  # Number of boosting rounds
     bst = xgb.train(params, dtrain, num_rounds)
     # Predict probabilities
     y_pred_proba = bst.predict(dtest)
@@ -81,7 +80,6 @@ def main():
     # Load dataset
     df = joblib.load("./data/preprocessed_df.pkl")
     df = df.sample(frac=1, random_state=42)
-
     # Define target and features
     target_column = "PlayerTeam1.won"
     X = df.drop(columns=[target_column]).values
