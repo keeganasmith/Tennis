@@ -53,6 +53,32 @@ PLAYER2_ACES = "PlayerTeam2.Sets[0].Stats.ServiceStats.Aces.Number"
 
 PLAYER1_DOUBLE = "PlayerTeam1.Sets[0].Stats.ServiceStats.DoubleFaults.Number"
 PLAYER2_DOUBLE = "PlayerTeam2.Sets[0].Stats.ServiceStats.DoubleFaults.Number"
+
+PLAYER1_COUNTRY_CODE = "PlayerTeam1.PlayerCountryCode"
+PLAYER2_COUNTRY_CODE = "PlayerTeam2.PlayerCountryCode"
+country_mapping = {
+    'GER': 'Germany', 'MAR': 'Morocco', 'NED': 'Netherlands', 'SUI': 'Switzerland', 'SWE': 'Sweden',
+    'BLR': 'Belarus', 'ITA': 'Italy', 'ARG': 'Argentina', 'CZE': 'Czech Republic', 'ESP': 'Spain',
+    'CRC': 'Costa Rica', 'RUS': 'Russia', 'USA': 'United States', 'FRA': 'France', 'QAT': 'Qatar',
+    'CRO': 'Croatia', 'GBR': 'United Kingdom', 'FIN': 'Finland', 'IND': 'India', 'HAI': 'Haiti',
+    'BUL': 'Bulgaria', 'ISR': 'Israel', 'AUT': 'Austria', 'ZIM': 'Zimbabwe', 'BEL': 'Belgium',
+    'SVK': 'Slovakia', 'UZB': 'Uzbekistan', 'ROU': 'Romania', 'AUS': 'Australia', 'JPN': 'Japan',
+    'MON': 'Monaco', 'SRB': 'Serbia', 'BRA': 'Brazil', 'ARM': 'Armenia', 'NZL': 'New Zealand',
+    'ECU': 'Ecuador', 'UKR': 'Ukraine', 'RSA': 'South Africa', 'THA': 'Thailand', 'PHI': 'Philippines',
+    'CAN': 'Canada', 'CHI': 'Chile', 'BAH': 'Bahamas', 'MEX': 'Mexico', 'DEN': 'Denmark',
+    'VEN': 'Venezuela', 'COL': 'Colombia', 'NOR': 'Norway', 'PAR': 'Paraguay', 'HUN': 'Hungary',
+    'URU': 'Uruguay', 'KOR': 'South Korea', 'HKG': 'Hong Kong', 'CHN': 'China', 'PER': 'Peru',
+    'TPE': 'Taiwan', 'CYP': 'Cyprus', 'LUX': 'Luxembourg', 'KAZ': 'Kazakhstan', 'UAE': 'United Arab Emirates',
+    'GEO': 'Georgia', 'SLO': 'Slovenia', 'POL': 'Poland', 'GRE': 'Greece', 'AZE': 'Azerbaijan',
+    'ALG': 'Algeria', 'JAM': 'Jamaica', 'BIH': 'Bosnia and Herzegovina', 'KUW': 'Kuwait', 'PAK': 'Pakistan',
+    'VIE': 'Vietnam', 'LAT': 'Latvia', 'MDA': 'Moldova', 'AND': 'Andorra', 'LBN': 'Lebanon',
+    'POR': 'Portugal', 'LTU': 'Lithuania', 'IRL': 'Ireland', 'AHO': 'Netherlands Antilles', 'SLE': 'Sierra Leone',
+    'MKD': 'North Macedonia', 'SRI': 'Sri Lanka', 'SYR': 'Syria', 'OMA': 'Oman', 'TOG': 'Togo',
+    'TUR': 'Turkey', 'ESA': 'El Salvador', 'DOM': 'Dominican Republic', 'EST': 'Estonia', 'CIV': 'Ivory Coast',
+    'MAS': 'Malaysia', 'EGY': 'Egypt', 'TUN': 'Tunisia', 'BAR': 'Barbados', 'INA': 'Indonesia',
+    'GUA': 'Guatemala', 'KOS': 'Kosovo', 'BOL': 'Bolivia', 'TKM': 'Turkmenistan', 'SGP': 'Singapore',
+    'JOR': 'Jordan', 'NMI': 'Northern Mariana Islands'
+}
 # ======================================================
 # Helper Classes and Functions
 # ======================================================
@@ -471,6 +497,23 @@ def compute_surface_stats(df, num_years):
 
     df = new_df
     return df
+
+def home_field_advantage(df):
+    df[['TournamentCity', 'TournamentCountry']] = df['TourneyLocation'].str.split(', ', n=1, expand=True)
+    df["TournamentCity"] = df["TournamentCity"].str.lower()
+    df["TournamentCountry"] = df["TournamentCountry"].str.lower()
+    df["PlayerTeam1.Country"] = df[PLAYER1_COUNTRY_CODE].map(country_mapping).str.lower()
+    df["PlayerTeam2.Country"] = df[PLAYER2_COUNTRY_CODE].map(country_mapping).str.lower()
+    df["PlayerTeam1.homefield"] = 0
+    df["PlayerTeam2.homefield"] = 0
+
+    df.loc[df["PlayerTeam1.Country"] == df["TournamentCountry"], "PlayerTeam1.homefield"] = 1
+    df.loc[df["PlayerTeam2.Country"] == df["TournamentCountry"], "PlayerTeam2.homefield"] = 1
+    
+    # print(df["PlayerTeam1.homefield"].describe())
+    # print(df["PlayerTeam2.homefield"].describe())
+    return df
+    
 # ======================================================
 # Main Pipeline
 # ======================================================
@@ -486,6 +529,7 @@ def main() -> None:
         return
 
     df = joblib.load("./data/atp_with_rankings.pkl")
+    df = home_field_advantage(df)
     pd.set_option('display.max_rows', 500)
     pd.set_option('display.max_columns', 500)
     # print("Before filtering:", df.shape)
@@ -515,7 +559,7 @@ def main() -> None:
     print("Final dataset length:", len(df))
     print("Missing values per column:\n", df.isna().sum())
     print("Dataset summary:\n", df.describe(include="all"))
-    
+    print(df.columns)
     joblib.dump(df, "./data/preprocessed_df.pkl")
 
 if __name__ == "__main__":
