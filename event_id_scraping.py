@@ -32,7 +32,50 @@ irrelevant_keys = [
     "PlayerTeam2.PartnerScRelativeUrlPlayerCountryFlag",
     "PlayerTeam2.PartnerHeadshotImageUrl", "PlayerTeam2.PartnerGladiatorImageUrl",
 ]
+def retrieve_event_information(event_id):
+    url = f'https://www.atptour.com/en/-/tournaments/profile/{event_id}/overview'
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest"
+    }
+    max_retries = 5
+    retries =0;
+    while retries < max_retries:
+        start_time = time.time()
+        try:
+            response = requests.get(url, headers=headers, timeout=2)
+            if response.status_code == 200:
+                try:
+                    return response.json()
+                except ValueError:
+                    print("Response is not JSON. Printing raw text:")
+                    print(response.text)
+                    return None
+            else:
+                print(f"Request failed with status code {response.status_code}")
 
+        except (requests.Timeout, requests.ConnectionError) as e:
+            print(f"Request timed out or failed: {e}")
+            time.sleep(10)
+        
+        retries += 1
+        print(f"Retrying... Attempt {retries}/{max_retries}")
+    
+    print("Max retries reached. Returning None.")
+    return None
+
+def write_event_information():
+    df = joblib.load("./data/atp_with_rankings.pkl")
+    event_ids = df["EventId"].unique()
+    for id in event_ids:
+        event_info = retrieve_event_information(id)
+        df.loc[df["EventId"] == id, "InOutdoor"] = event_info["InOutdoor"]
+        df.loc[df["EventId"] == id, "TourneyLocation"] = event_info["Location"]
+        print("retrieved location + indoor/outdoor")
+        time.sleep(.1)
+    joblib.dump(df, "./data/atp_with_rankings.pkl")
+    
 def retrieve_player_historical_rankings(player_id):
     url = f"https://www.atptour.com/en/-/www/rank/history/{player_id}?v=1"
     headers = {
@@ -329,6 +372,7 @@ if __name__ == "__main__":
     #write_all_event_ids()
     #write_all_match_ids()
     #populate_match_statistics()
-    map_player_rankings()
+    #map_player_rankings()
+    write_event_information()
 
     

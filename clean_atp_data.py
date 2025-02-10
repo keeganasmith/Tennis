@@ -329,7 +329,7 @@ def convert_to_ints(df: pd.DataFrame) -> pd.DataFrame:
     Convert categorical variables to dummy/indicator variables.
     Also convert certain binary flag columns to integers.
     """
-    categorical_columns = ["EventType", "Court"]
+    categorical_columns = ["EventType", "Court", "InOutdoor"]
     df = pd.get_dummies(df, columns=categorical_columns, dtype=int)
     
     binary_columns = [
@@ -441,7 +441,7 @@ def cols_to_remove_before_training(df: pd.DataFrame) -> pd.DataFrame:
     bad_words = [
         "Sets[", "TournamentName", "Doubles", "Singles", "Date", "EventYear", "EventId",
         "Round", "Time", "Winner", "Winning", "NumberOfSets", "MatchId", "TournamentCity",
-        "Id", "Name", "Country", "match_id", "serve_pct1", "pct1"
+        "Id", "Name", "Country", "match_id", "serve_pct1", "pct1", "TourneyLocation"
     ]
     for col in list(df.columns):
         if any(bad in col for bad in bad_words):
@@ -464,7 +464,7 @@ def compute_surface_stats(df, num_years):
         new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, winner_rename_mapping, 1)
         new_df = merge_dataframes(new_df, player_stats, columns_to_merge_on, loser_rename_mapping, 0)
         new_df = fill_na_columns(new_df, winner_columns + loser_columns, 0)
-        
+    
     df = new_df
     return df
 # ======================================================
@@ -484,16 +484,16 @@ def main() -> None:
     df = joblib.load("./data/atp_with_rankings.pkl")
     pd.set_option('display.max_rows', 500)
     pd.set_option('display.max_columns', 500)
-    print("Before filtering:", df.shape)
-    print(df.describe())
+    # print("Before filtering:", df.shape)
+    # print(df.describe())
     df = df[df[PLAYER1_SERVE_TOTAL] > 0]
     df = df[df[PLAYER2_SERVE_TOTAL] > 0]
     df = df[df[PLAYER1_RETURN_TOTAL] > 0]
     df = df[df[PLAYER2_RETURN_TOTAL] > 0]
-    print("After filtering:", df.shape)
-    print(df.describe())
+    # print("After filtering:", df.shape)
+    # print(df.describe())
     # print("DF IS only: ", len(df))
-    # print(df.isna().sum())
+    print(df.isna().sum())
     df = add_features(df)
     df = compute_surface_stats(df, 3)
     

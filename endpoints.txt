@@ -45,6 +45,21 @@ curl 'https://www.atptour.com/en/-/www/rank/history/s0ag?v=1' \
   -H 'sec-fetch-site: same-origin' \
   -H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0'
 
+Retrieve event info (for location):
+curl 'https://www.atptour.com/en/-/tournaments/profile/424/overview' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'cookie: atp_visitor-id=d55eb5de-184b-4ec4-9a34-8bc3e80882ee; _gcl_au=1.1.575303170.1738299033; OptanonAlertBoxClosed=2025-01-31T04:50:35.424Z; shell#lang=en; __cf_bm=2h2Rp8EKYa3oruxbH9M6CCLunXRU9QxblSrR_YdoiGg-1739163086-1.0.1.1-kXY91JeTpM4Et3o1wV6mgT5w8jbGCmc7OT4qecAVE1FSy0doBQoQjsNjtvabEpBX0E3aLTM1QxI0bRQF9rzd2A; atp_session-id=0d8f57e0-5cee-46ae-b5ae-05a1179d85b8; cf_clearance=rfY1GzAGApIrNwJ0yRYn7EUXB6G2cahVFYrUQ3SkuF4-1739163087-1.2.1.1-cnmADUey4_.7tRRUz2G5uP6Pjpe57ooeAXXQp5I8zM2NiW9kJSrO6waIeFJJC64AA9y4XELRKOs0wXtRyFvyHVeROuLu2mw6V3I82J4DuVIEfKIJlwL87H0wUZTfsAPolQ3pQ0pQLA3xTrY5eP9CUHPRVMLic_le37T6tARjGCxDLWghTzoA5Odj4QS2k8Wk.rxLwcGgxyoaOk8tuJN5VuzoCt3Q67XCBO9oJqn6bAe.NqTlM_BxD_rNuXsiGF2MrtuvK4cf4Jp.ov2INpkSKXeyKC55DXw.bdxfstFrWzk; OptanonConsent=isGpcEnabled=0&datestamp=Sun+Feb+09+2025+22%3A52%3A57+GMT-0600+(Central+Standard+Time)&version=202411.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=f9da89df-17e9-434a-ba8d-8db5fb6f1350&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0003%3A1&intType=1&geolocation=US%3BTX&AwaitingReconsent=false' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://www.atptour.com/en/tournaments/dallas/424/overview' \
+  -H 'sec-ch-ua: "Not A(Brand";v="8", "Chromium";v="132", "Microsoft Edge";v="132"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Windows"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0'
+
 MS025 , 375
 https://www.atptour.com/en/-/tour/Head2HeadSearch/GetHead2HeadData/playerid/playerid
 https://www.atptour.com/-/Hawkeye/MatchStats/Complete/yyyy/eventid/matchid 
