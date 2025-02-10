@@ -31,6 +31,19 @@ curl 'https://www.atptour.com/-/Hawkeye/MatchStats/Complete/2025/9900/ms011' \
   -H 'sec-fetch-site: same-origin' \
   -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
+curl 'https://www.atptour.com/en/-/www/rank/history/s0ag?v=1' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'cookie: atp_visitor-id=d55eb5de-184b-4ec4-9a34-8bc3e80882ee; _gcl_au=1.1.575303170.1738299033; OptanonAlertBoxClosed=2025-01-31T04:50:35.424Z; atp_session-id=6b8c179b-7fd6-4a78-9db5-31b260e802d1; __cf_bm=QJrqW5XJzsbn47t4iEwMPANuOPw3TnkQ.3MyrZvEK7I-1738558706-1.0.1.1-qLLaT_KBDjRdW4qOAnxcCyJakCStcy7EQVMjRCyZmKLtt_R3h4Ft5Tpu5v0_haq81qb_3wRu4QSYTY439bMqBQ; cf_clearance=aDZwZoWGrAhQUYyHSRvdgHshfBTB9_F70jDz4eJb3U0-1738558707-1.2.1.1-XkUBgP6dWymJ9GHNtDqBq2PtaZ5fkB0r3QQEnl5DJZNjbYQB3hTlx0TWxfi_GUKYTLeWrk1llNFDF9Wc9Q8cxot56YLiSodW_k._WkFf65lsmpUofgaGLyxi63J7ZLLhQZcc_dLi018gF9g03FMomoQEDQ3HZgVhBDLucHe68k19h_Qa3F6T_Ng6lXjrx5gYWu9XueXsZ3OTgp6J9ie6BYrgO33Mjfnku4Jm0LlGStnknoSDI50YzHH2nJqNoJFa_Ib8mKqvHGTgoyluttpogZGnCt3Qq0dL33cK_40pY.0; OptanonConsent=isGpcEnabled=0&datestamp=Sun+Feb+02+2025+22%3A58%3A32+GMT-0600+(Central+Standard+Time)&version=202411.2.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=f9da89df-17e9-434a-ba8d-8db5fb6f1350&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0004%3A1%2CC0003%3A1&intType=1&geolocation=US%3BTX&AwaitingReconsent=false' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://www.atptour.com/en/players/jannik-sinner/s0ag/rankings-history' \
+  -H 'sec-ch-ua: "Not A(Brand";v="8", "Chromium";v="132", "Microsoft Edge";v="132"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Windows"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0'
 
 MS025 , 375
 https://www.atptour.com/en/-/tour/Head2HeadSearch/GetHead2HeadData/playerid/playerid
