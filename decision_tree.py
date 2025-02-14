@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.experimental import enable_halving_search_cv
-
+from datetime import datetime
 from sklearn.model_selection import HalvingGridSearchCV
 import joblib
 print("Scikit-Learn Version:", sklearn.__version__)
@@ -79,20 +79,33 @@ def train(X_train, X_test, Y_train, Y_test):
 def main():
     # Load dataset
     df = joblib.load("./data/preprocessed_df.pkl")
-    df = df.sample(frac=1, random_state=42)
+    df["StartDate"] = pd.to_datetime(df["StartDate"])  # Ensure StartDate is a datetime object
+    df = df.sort_values("StartDate")  # Sort by StartDate to maintain temporal order
+
+    # Time-based split
+    split_date = datetime(2022, 1, 1)  # Use January 1, 2022, as the split point
+    train_df = df[df["StartDate"] < split_date]
+    test_df = df[df["StartDate"] >= split_date]
+    #print(train_df.columns.tolist())
+    columns_to_drop = train_df.columns[train_df.columns.str.contains("Date")].tolist()
+
+    train_df = train_df.drop(columns=columns_to_drop)
+    test_df = test_df.drop(columns=columns_to_drop)
     # Define target and features
     target_column = "PlayerTeam1.won"
-    X = df.drop(columns=[target_column]).values
-    Y = df[target_column].values 
+    X_train = train_df.drop(columns=[target_column]).values
+    Y_train = train_df[target_column].values
+    X_test = test_df.drop(columns=[target_column]).values
+    Y_test = test_df[target_column].values
 
-    # Train-test split
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42, stratify=Y)
-
-    # Normalize features (XGBoost can handle raw data, but scaling helps)
+    # Normalize features
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
+
+    # Train the model
     train(X_train, X_test, Y_train, Y_test)
-    #search(X_train, X_test, Y_train, Y_test)
+    # search(X_train, X_test, Y_train, Y_test)  # Uncomment if needed
+    
 if __name__ == "__main__":
     main()

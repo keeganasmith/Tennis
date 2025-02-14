@@ -474,7 +474,7 @@ def add_rankings_to_dataset(df: pd.DataFrame, player_rankings: Dict) -> pd.DataF
 def cols_to_remove_before_training(df: pd.DataFrame) -> pd.DataFrame:
     """Remove columns that contain unwanted keywords."""
     bad_words = [
-        "Sets[", "TournamentName", "Doubles", "Singles", "Date", "EventYear", "EventId",
+        "Sets[", "TournamentName", "Doubles", "Singles", "EventYear", "EventId",
         "Round", "Time", "Winner", "Winning", "NumberOfSets", "MatchId", "TournamentCity",
         "Id", "Name", "Country", "match_id", "pct1", "TourneyLocation", "Tie",
         "opponent_factor", "date", "ProYear", "Height", "Weight", "year", "Age"
