@@ -305,6 +305,10 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["PlayerTeam2.aces_pct1"] = df[PLAYER2_ACES] / df[PLAYER2_SERVE_TOTAL]
     df["PlayerTeam1.double_pct1"] = df[PLAYER1_DOUBLE] / df[PLAYER1_SERVE_TOTAL]
     df["PlayerTeam2.double_pct1"] = df[PLAYER2_DOUBLE] / df[PLAYER2_SERVE_TOTAL]
+    df["PlayerTeam1.years_pro"] = df["EventYear"] - df["PlayerTeam1.ProYear"]
+    df["PlayerTeam2.years_pro"] = df["EventYear"] - df["PlayerTeam2.ProYear"]
+    df["PlayerTeam1.Age"] = df["EventYear"] - (2025 - df["PlayerTeam1.Age"])
+    df["PlayerTeam2.Age"] = df["EventYear"] - (2025 - df["PlayerTeam2.Age"])
     
     df = replace_divide_by_zero(df, PLAYER1_BP_TOTAL, "PlayerTeam1.bp_save_pct1")
     df = replace_divide_by_zero(df, PLAYER2_BP_TOTAL, "PlayerTeam2.bp_save_pct1")
@@ -358,7 +362,7 @@ def convert_to_ints(df: pd.DataFrame) -> pd.DataFrame:
     Convert categorical variables to dummy/indicator variables.
     Also convert certain binary flag columns to integers.
     """
-    categorical_columns = ["EventType", "Court", "InOutdoor"]
+    categorical_columns = ["EventType", "Court", "InOutdoor", "PlayerTeam2.PlayHand", "PlayerTeam1.PlayHand", "PlayerTeam2.Backhand", "PlayerTeam1.Backhand"]
     df = pd.get_dummies(df, columns=categorical_columns, dtype=int)
     
     # binary_columns = [
@@ -471,7 +475,7 @@ def cols_to_remove_before_training(df: pd.DataFrame) -> pd.DataFrame:
         "Sets[", "TournamentName", "Doubles", "Singles", "Date", "EventYear", "EventId",
         "Round", "Time", "Winner", "Winning", "NumberOfSets", "MatchId", "TournamentCity",
         "Id", "Name", "Country", "match_id", "pct1", "TourneyLocation", "Tie",
-        "opponent_factor", "date", "days_since_last"
+        "opponent_factor", "date", "days_since_last", "ProYear", "Height", "Weight", "year", "Age"
     ]
     for col in list(df.columns):
         if any(bad in col for bad in bad_words):

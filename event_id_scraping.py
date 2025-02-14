@@ -72,8 +72,11 @@ def write_player_info():
         player_info_dict = joblib.load('./data/player_info.pkl')
     except:
         player_info_dict = {}
-    players = list(df["PlayerTeam1.PlayerId"].unique()) + list(df["PlayerTeam2.PlayerId"].unique())
-    i =0 
+    all_players = list(df["PlayerTeam1.PlayerId"].unique()) + list(df["PlayerTeam2.PlayerId"].unique())
+    players = {}
+    for player in all_players:
+        players[player] = None
+    i=0 
     print("starting loop...")
     for player in players:
         if(player in player_info_dict):
@@ -91,9 +94,41 @@ def write_player_info():
         if(i % 50 == 0):
             print("writing 50 records to disk...")
             joblib.dump(player_info_dict, "./data/player_info.pkl")    
-        print(f"Progress: {i} / {len(players)}")
+        print(f"Progress: {len(player_info_dict)} / {len(players)}")
         i += 1
     joblib.dump(player_info_dict, "./data/player_info.pkl")
+
+def merge_player_info_with_stats_df():
+    player_info = joblib.load("./data/player_info.pkl")
+    matches = joblib.load("./data/atp_with_rankings.pkl")
+    player_df = pd.DataFrame(player_info).T  # Transpose to have player IDs as rows
+    player_df.reset_index(inplace=True)
+    player_df.rename(columns={"index": "PlayerId"}, inplace=True)
+
+    # Step 2: Merge matches with player_df for PlayerTeam1
+    merged = matches.merge(player_df, left_on="PlayerTeam1.PlayerId", right_on="PlayerId", suffixes=("", "_PlayerTeam1"))
+
+    # Rename columns to include PlayerTeam1 prefix
+    merged.rename(columns={col: f"PlayerTeam1.{col}" for col in player_df.columns if col != "PlayerId"}, inplace=True)
+    merged.drop("PlayerId", axis=1, inplace=True)
+
+    # Step 3: Merge again for PlayerTeam2
+    merged = merged.merge(player_df, left_on="PlayerTeam2.PlayerId", right_on="PlayerId", suffixes=("", "_PlayerTeam2"))
+
+    # Rename columns to include PlayerTeam2 prefix
+    merged.rename(columns={col: f"PlayerTeam2.{col}" for col in player_df.columns if col != "PlayerId"}, inplace=True)
+    merged.drop("PlayerId", axis=1, inplace=True) 
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)   
+    #print(merged)
+    
+    print(merged.isna().sum())
+    print(list(merged.columns))
+    
+    print(len(merged))
+    
+    joblib.dump(merged, "./data/atp_with_rankings.pkl")
+    
 def retrieve_event_information(event_id):
     url = f'https://www.atptour.com/en/-/tournaments/profile/{event_id}/overview'
     headers = {
@@ -436,6 +471,7 @@ if __name__ == "__main__":
     #populate_match_statistics()
     #map_player_rankings()
     #write_event_information()
-    write_player_info()
+    #write_player_info()
+    merge_player_info_with_stats_df()
 
     
