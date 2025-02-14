@@ -309,6 +309,8 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["PlayerTeam2.years_pro"] = df["EventYear"] - df["PlayerTeam2.ProYear"]
     df["PlayerTeam1.Age"] = df["EventYear"] - (2025 - df["PlayerTeam1.Age"])
     df["PlayerTeam2.Age"] = df["EventYear"] - (2025 - df["PlayerTeam2.Age"])
+    df["PlayerTeam1.AgeDifference"] = df["PlayerTeam2.Age"] - df["PlayerTeam1.Age"]
+    df["PlayerTeam2.AgeDifference"] = df["PlayerTeam1.Age"] - df["PlayerTeam2.Age"]
     
     df = replace_divide_by_zero(df, PLAYER1_BP_TOTAL, "PlayerTeam1.bp_save_pct1")
     df = replace_divide_by_zero(df, PLAYER2_BP_TOTAL, "PlayerTeam2.bp_save_pct1")
@@ -475,7 +477,7 @@ def cols_to_remove_before_training(df: pd.DataFrame) -> pd.DataFrame:
         "Sets[", "TournamentName", "Doubles", "Singles", "Date", "EventYear", "EventId",
         "Round", "Time", "Winner", "Winning", "NumberOfSets", "MatchId", "TournamentCity",
         "Id", "Name", "Country", "match_id", "pct1", "TourneyLocation", "Tie",
-        "opponent_factor", "date", "days_since_last", "ProYear", "Height", "Weight", "year", "Age"
+        "opponent_factor", "date", "ProYear", "Height", "Weight", "year", "Age"
     ]
     for col in list(df.columns):
         if any(bad in col for bad in bad_words):
@@ -529,18 +531,27 @@ def compute_time_since_last_tournament(df: pd.DataFrame) -> pd.DataFrame:
     Note:
       - This function processes each player's tournament history in chronological order,
         ensuring that only past tournaments are used in the calculation.
-      - To avoid data leakage, it is important that you perform a time-based train/test split 
-        (or otherwise restrict future information) before using these features in modeling.
+      - The start date cannot be equal to the current start date.
     """
     df["StartDate"] = pd.to_datetime(df["StartDate"], errors="coerce")
-    
+
     def compute_for_player(group: pd.DataFrame, player_prefix: str) -> pd.DataFrame:
-        group = group.sort_values("StartDate")
-        previous_date = group["StartDate"].shift(1)
-        days_since = (group["StartDate"] - previous_date).dt.days.fillna(0).astype(int)
+        group = group.sort_values("StartDate").reset_index(drop=True)
+        days_since = []
+        
+        for i in range(len(group)):
+            current_date = group.loc[i, "StartDate"]
+            # Find the max date that is less than the current date
+            previous_date = group.loc[group["StartDate"] < current_date, "StartDate"].max()
+            if pd.isna(previous_date):
+                days_since.append(0)  # No previous date
+            else:
+                days_since.append((current_date - previous_date).days)
+        
         group[f"{player_prefix}.days_since_last"] = days_since
         return group
-    
+
+    # Apply for both PlayerTeam1 and PlayerTeam2
     df = df.groupby("PlayerTeam1.PlayerId", group_keys=False).apply(
         lambda grp: compute_for_player(grp, "PlayerTeam1")
     )
