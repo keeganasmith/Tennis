@@ -583,7 +583,9 @@ def main() -> None:
     df["PlayerTeam1.PlayerId"] = df["PlayerTeam1.PlayerId"].astype(str)
     df["WinningPlayerId"] = df["WinningPlayerId"].astype(str)
     df.loc[df["PlayerTeam1.PlayerId"] == df["WinningPlayerId"], "PlayerTeam1.won"] = 1
-    
+    cutoff_date = pd.to_datetime("2000-01-01")
+
+    df = df[df["StartDate"] >= cutoff_date]
     df = cols_to_remove_before_training(df)
     df = convert_to_ints(df)
 
@@ -595,6 +597,7 @@ def main() -> None:
     print("Missing values per column:\n", df.isna().sum())
     print("Dataset summary:\n", df.describe(include="all"))
     print(list(df.columns))
+    
     joblib.dump(df, "./data/preprocessed_df.pkl")
 
 if __name__ == "__main__":

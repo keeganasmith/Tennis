@@ -32,6 +32,68 @@ irrelevant_keys = [
     "PlayerTeam2.PartnerScRelativeUrlPlayerCountryFlag",
     "PlayerTeam2.PartnerHeadshotImageUrl", "PlayerTeam2.PartnerGladiatorImageUrl",
 ]
+
+def retrieve_player_info(player_id):
+    url = f'https://www.atptour.com/en/-/www/players/hero/{player_id}?v=1'
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest"
+    }
+    max_retries = 5;
+    retries = 0;
+    while retries < max_retries:
+        try:
+            response = requests.get(url, headers=headers, timeout=2)
+            if response.status_code == 200:
+                try:
+                    return response.json()
+                except ValueError:
+                    print("Response is not JSON. Printing raw text:")
+                    print(response.text)
+                    return None
+            else:
+                print(f"Request failed with status code {response.status_code}")
+
+        except (requests.Timeout, requests.ConnectionError) as e:
+            print(f"Request timed out or failed: {e}")
+            time.sleep(10)
+        retries += 1
+        print(f"Retrying... Attempt {retries}/{max_retries}")
+        
+    print("Max retries reached. Returning None.")
+    return None
+
+def write_player_info():
+    print("loading data...")
+    df = joblib.load('./data/atp_with_rankings.pkl')
+    player_info_dict = {}
+    try:
+        player_info_dict = joblib.load('./data/player_info.pkl')
+    except:
+        player_info_dict = {}
+    players = list(df["PlayerTeam1.PlayerId"].unique()) + list(df["PlayerTeam2.PlayerId"].unique())
+    i =0 
+    print("starting loop...")
+    for player in players:
+        if(player in player_info_dict):
+            continue
+        player_info = retrieve_player_info(player)
+        important_object = {}
+        important_object["HeightCm"] = player_info["HeightCm"]
+        important_object["WeightLb"] = player_info["WeightLb"]
+        important_object["Age"] = player_info["Age"]
+        important_object["PlayHand"] = player_info["PlayHand"]["Id"]
+        important_object["Backhand"] = player_info["BackHand"]["Id"]
+        important_object["ProYear"] = player_info["ProYear"]
+        player_info_dict[player] = important_object
+        time.sleep(.3)
+        if(i % 50 == 0):
+            print("writing 50 records to disk...")
+            joblib.dump(player_info_dict, "./data/player_info.pkl")    
+        print(f"Progress: {i} / {len(players)}")
+        i += 1
+    joblib.dump(player_info_dict, "./data/player_info.pkl")
 def retrieve_event_information(event_id):
     url = f'https://www.atptour.com/en/-/tournaments/profile/{event_id}/overview'
     headers = {
@@ -373,6 +435,7 @@ if __name__ == "__main__":
     #write_all_match_ids()
     #populate_match_statistics()
     #map_player_rankings()
-    write_event_information()
+    #write_event_information()
+    write_player_info()
 
     

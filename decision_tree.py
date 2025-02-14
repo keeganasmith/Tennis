@@ -63,7 +63,7 @@ def train(X_train, X_test, Y_train, Y_test):
         "alpha": 0,                       # L1 regularization
     }
     # Train the model
-    num_rounds = 2750  # Number of boosting rounds
+    num_rounds = 3000
     bst = xgb.train(params, dtrain, num_rounds)
     # Predict probabilities
     y_pred_proba = bst.predict(dtest)
